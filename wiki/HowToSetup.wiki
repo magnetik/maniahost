@@ -1,0 +1,10 @@
+#follow those steps to setup your ManiaHost
+
+= Introduction =
+
+This tutorial is made to help you to correctly setup your ManiaHost software on your server.
+
+
+= Details =
+
+ # Download the latest package in the [downloads] section
