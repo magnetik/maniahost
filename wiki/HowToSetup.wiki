@@ -13,8 +13,11 @@ This tutorial is made to help you to correctly setup your ManiaHost software on 
  # Create a database for your ManiaHost
  # Import the maniahost.sql in your database to create the tables used
  # complete the app.ini file (file the correct information on each line which finished by = )
-  # provide the manialink URL and short URL (the one used ingame)
-  # provide a username and password you create on [http://developpers.maniaplanet.com]
+  * Give the price per hour of renting
+  * Provide the manialink URL and short URL (the one used ingame)
+  * Provide a username and password you create on [http://developers.maniaplanet.com]
+  * Enter the correct information to connect to the database
+  * Provide the data used for the transaction
  # Setup your dedicated servers with ManiaLive
  # Add the content of the folder libraries/ManiaLivePlugins in the plugin's folder of ManiaLive
  # Start your servers without tracklist in noautoquit mode, i.e.: add /noautoquit in your command line.
