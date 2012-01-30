@@ -139,8 +139,8 @@ class RentServer extends \ManiaLib\Application\View
 				$ui->setId('maxPlayerHelp');
 				$ui->setScriptEvents();
 				$ui->save();
-				//TODO Plug the max player number with the config
-				UI::tooltip('maxPlayerHelp', 'Max player allowed is 255');
+
+				UI::tooltip('maxPlayerHelp', sprintf('Max player allowed is %d', \ManiaHost\Config::getInstance()->maxPlayerPerServer));
 
 				$ui = new Label(80);
 				$ui->setHalign('center');
@@ -306,6 +306,18 @@ class RentServer extends \ManiaLib\Application\View
 				$ui->setText($gameModeLabel);
 				$ui->setManialink($manialink);
 				$ui->save();
+
+				$ui = new Button();
+				$ui->setHalign('center');
+				$ui->setPosition(0,-76,0.1);
+				$ui->setText('Advanced');
+				$ui->setStyle(Button::CardButtonSmall);
+				$ui->setId('advanceSwitch');
+				$ui->setScriptEvents();
+				$ui->save();
+
+				Event::addListener('advanceSwitch', Event::mouseClick, array(Action::toggle, 'advancedPanel'));
+				\ManiaLib\ManiaScript\Manipulation::hide('advancedPanel');
 			}
 			Manialink::endFrame();
 
