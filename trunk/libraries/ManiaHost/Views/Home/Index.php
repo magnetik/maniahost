@@ -43,7 +43,7 @@ class Index extends \ManiaLib\Application\View
 			$ui->setHalign('center');
 			$ui->bullet->setStyle(Quad::Icons64x64_1);
 			$ui->bullet->setSubStyle(Icons64x64_1::First);
-			$ui->title->setText('Select duration');
+			$ui->title->setText('Select the duration');
 			$ui->save();
 			$ui = new Bullet();
 			$ui->setHalign('center');
@@ -55,7 +55,7 @@ class Index extends \ManiaLib\Application\View
 			$ui->setHalign('center');
 			$ui->bullet->setStyle(Quad::Icons64x64_1);
 			$ui->bullet->setSubStyle(Icons64x64_1::Third);
-			$ui->title->setText('Select your tracks');
+			$ui->title->setText('Select the tracks');
 			$ui->save();
 			$ui = new Bullet();
 			$ui->setHalign('center');
