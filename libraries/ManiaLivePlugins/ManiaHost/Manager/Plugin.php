@@ -128,7 +128,7 @@ class Plugin extends \ManiaLive\PluginHandler\Plugin implements \ManiaLive\Plugi
 					'WHERE (UNIX_TIMESTAMP(rentDate) + duration * 3600 > UNIX_TIMESTAMP() '.
 					'AND rentDate <= NOW() AND S.idRent IS NULL) '.
 					'OR (NOT ISNULL(S.idRent) '.
-					'AND UNIX_TIMESTAMP(R.rentDate) + R.duration * 3600 < UNIX_TIMESTAMP()) '.
+					'AND UNIX_TIMESTAMP(R.rentDate) + R.duration * 3600 > UNIX_TIMESTAMP()) '.
 					'LIMIT 1'
 			);
 			$datas = $result->fetchAssoc();
