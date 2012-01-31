@@ -218,7 +218,7 @@ class Rent extends AbstractController
 
 	function selectMap($path = '')
 	{
-		$path = \ManiaHost\Config::getInstance()->pathToDedicated.DIRECTORY_SEPARATOR.'UserData'.DIRECTORY_SEPARATOR.'Maps'.$path;
+		$path = realpath(\ManiaHost\Config::getInstance()->pathToDedicated).DIRECTORY_SEPARATOR.'UserData'.DIRECTORY_SEPARATOR.'Maps'.$path;
 
 		$fileService = new \ManiaHost\Services\MapService();
 
@@ -358,7 +358,7 @@ class Rent extends AbstractController
 
 	function selectAll($path = '')
 	{
-		$path = \ManiaHost\Config::getInstance()->pathToDedicated.DIRECTORY_SEPARATOR.'UserData'.DIRECTORY_SEPARATOR.'Maps'.$path;
+		$path = realpath(\ManiaHost\Config::getInstance()->pathToDedicated).DIRECTORY_SEPARATOR.'UserData'.DIRECTORY_SEPARATOR.'Maps'.$path;
 
 		$fileService = new \ManiaHost\Services\MapService();
 		$files = $fileService->getList($path, true);
@@ -403,7 +403,7 @@ class Rent extends AbstractController
 
 	protected function dedicatedFilename($filename)
 	{
-		$search = \ManiaHost\Config::getInstance()->pathToDedicated.DIRECTORY_SEPARATOR.'UserData'.DIRECTORY_SEPARATOR.'Maps'.DIRECTORY_SEPARATOR;
+		$search = realpath(\ManiaHost\Config::getInstance()->pathToDedicated).DIRECTORY_SEPARATOR.'UserData'.DIRECTORY_SEPARATOR.'Maps'.DIRECTORY_SEPARATOR;
 		return str_ireplace($search, '', $filename);
 	}
 
