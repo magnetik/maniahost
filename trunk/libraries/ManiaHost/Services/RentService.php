@@ -75,9 +75,7 @@ class RentService extends AbstractService
 		}
 
 		$quotedLogin = $this->db()->quote($rent->playerLogin);
-		\ManiaLib\Utils\Logger::info(serialize($rent->serverOptions));
 		$quotedServerOptions = $this->db()->quote(serialize($rent->serverOptions));
-		\ManiaLib\Utils\Logger::info($quotedServerOptions);
 		$quotedGameInfos = $this->db()->quote(serialize($rent->gameInfos));
 		$quotedMaps = $this->db()->quote(serialize($rent->maps));
 

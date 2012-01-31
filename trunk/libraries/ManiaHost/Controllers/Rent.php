@@ -245,7 +245,6 @@ class Rent extends AbstractController
 				$datas['authorTime'] = '';
 				$datas['environment'] = '';
 			}
-			\ManiaLib\Utils\Logger::info($datas);
 			$map->name = $datas['name'];
 			$map->author = $datas['author'];
 			$map->authorTime = $datas['authorTime'];
