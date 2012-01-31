@@ -59,10 +59,16 @@ class Index extends \ManiaLib\Application\View
 					$remaining = round(((double) $remaining) / 3600, 2);
 
 					$card = new \ManiaHost\Cards\Rent();
-					\ManiaLib\Utils\Logger::info($card);
 					$card->setManialink('maniaplanet://#join='.$rent->login);
 					$card->name->setText(sprintf('%s', $rent->serverOptions['Name']));
+					if($rent->login)
+					{
 					$card->login->setText(sprintf('$oserver login$o: %s', $rent->login));
+					}
+					else
+					{
+						$card->login->setText('Your server will start soon. Refresh the page to see it. If it does not start contact the admin.');
+					}
 					$card->remainingTime->setText(sprintf(_('$oRemaining time$o: %s hours'),
 									$remaining));
 					$card->save();
