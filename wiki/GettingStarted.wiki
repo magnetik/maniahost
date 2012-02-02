@@ -1,36 +1,36 @@
 #summary How to quickly get started with ManiaHost
+#labels Featured
 = Introduction =
+
+ManiaHost for Maniaplanet is an application that you host and that allows players to rent Dedicated Servers with Planets - giving you additional Planets revenues.
 
 ManiaHost consists of a Manialink where people can come and rent servers for a given amount of time (for as little as 1 hour). The backend of ManiaHome is responsible for starting the Dedicated Servers, handling transactions, etc.
 
-
 = Requirements =
 
- * PHP 5.3
- * Apache or equivalent (IIS, etc.)
- * Curl for PHP with https support
- * MySQL 5.2
- * ManiaPlanet dedicated server (at least version released on January, 17th 2012)
- * ManiaLive version 2.1
+ * PHP 5.3 or newer
+ * cURL extension (http://php.net/manual/en/book.curl.php)
+ * JSON extension (http://php.net/manual/en/book.json.php)
+ * You must be able to make HTTPS requests on ws.maniaplanet.com
+ * A Web server (eg. Apache2)
+ * MySQL 5.1 or newer with InnoDB
 
 = Installation =
 
- # Put  extracted files on your Server
+ # Extract the maniahost package on your server
  # Create a database
- # Import the maniahost.sql in your database to create tables
- # Configure your web server (Apache or other) to have only the www accessible from the web
- # Setup maniaplanet dedicated servers
-  * Configure your server by editing the config_cfg.txt file (you can do only one config file)
- # Setup and configure ManiaLive
-  *. Configure ManiaLive by completing the config.ini file
-  *. Configure the ManiaHost's plugin to allow him to connect to the ManiaHost's database
-i.e: 
+ # Import "maniahost.sql" in your created database
+ # Configure your Web server to have only the "/www" directory accessible from the Web
+ # Setup ManiaPlanet Dedicated Servers
+  * Configure your dedicated server by editing the config_cfg.txt file (you can have a single config file)
+ # Setup ManiaLive
+  *. Configure ManiaLive by editing "config.ini"
+  *. Configure the ManiaHost plugin to allow him to connect to the ManiaHost's database with the following parameters:
 {{{
    ManiaLivePlugins\ManiaHost\Manager\Config.host = 'xxx'
    ManiaLivePlugins\ManiaHost\Manager\Config.database = 'xxx'
    ManiaLivePlugins\ManiaHost\Manager\Config.username = 'xxx'
    ManiaLivePlugins\ManiaHost\Manager\Config.password = 'xxx'
-   ...
 }}}
  # Create a username and an application on http://developers.maniaplanet.com/webservices/
  # Edit the app.ini (you will find it in the config folder). Fill all the lines that end with an equal symbol
