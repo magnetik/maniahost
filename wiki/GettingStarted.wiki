@@ -34,5 +34,4 @@ ManiaHost consists of a Manialink where people can come and rent servers for a g
 }}}
  # Create a username and an application on http://developers.maniaplanet.com/webservices/
  # Edit the app.ini (you will find it in the config folder). Fill all the lines that end with an equal symbol
- # Start your dedicated Servers with ManiaLive, keep in mind that the dedicated close every 30 days.
-  Your dedicated servers has to be launch with "/noautoquit" parameter in its command line
+ # Start your dedicated Servers with ManiaLive, keep in mind that the dedicated close every 30 days. Your dedicated servers has to be launch with "/noautoquit" parameter in its command line
