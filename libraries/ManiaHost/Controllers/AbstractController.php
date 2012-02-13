@@ -16,7 +16,7 @@ abstract class AbstractController extends \ManiaLib\Application\Controller
 
 	function onConstruct()
 	{
-		$this->addFilter(new \ManiaLib\Application\Filters\UserAgentCheck());
+//		$this->addFilter(new \ManiaLib\Application\Filters\UserAgentCheck());
 		$this->addFilter(new \ManiaLib\WebServices\ManiaConnectFilter());
 	}
 

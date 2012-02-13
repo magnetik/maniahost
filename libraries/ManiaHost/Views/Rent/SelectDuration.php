@@ -42,7 +42,7 @@ class SelectDuration extends \ManiaLib\Application\View
 			$ui->setHalign('center');
 			$ui->setStyle(Label::TextTips);
 			$ui->enableAutonewline();
-			$ui->setText(_('How many time do you want to rent your server?'));
+			$ui->setText(_('How long do you want to rent server?'));
 			$ui->save();
 
 			$ui = new Label(25);
