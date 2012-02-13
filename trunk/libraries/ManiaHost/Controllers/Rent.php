@@ -42,7 +42,7 @@ class Rent extends AbstractController
 	{
 		if($days == 0 && $hours == 0 && $this->session->get('duration') == 0)
 		{
-			throw new UserException(_('You have to rent a server for at least 1 hour'));
+			throw new \ManiaLib\Application\UserException(_('You have to rent a server for at least 1 hour'));
 		}
 
 		if(!$this->session->get('duration'))
@@ -118,12 +118,12 @@ class Rent extends AbstractController
 
 		if(!$name)
 		{
-			throw new ManiaLib\Application\UserException(_('You must name your server'));
+			throw new \ManiaLib\Application\UserException(_('You must name your server'));
 		}
 
 		if($maxPlayer + $maxSpec > \ManiaHost\Config::getInstance()->maxPlayerPerServer)
 		{
-			throw new ManiaLib\Application\UserException(sprintf(_('The number of player and spectator has to be inferior to %d'),
+			throw new \ManiaLib\Application\UserException(sprintf(_('The number of player and spectator has to be inferior to %d'),
 							\ManiaHost\Config::getInstance()->maxPlayerPerServer));
 		}
 
