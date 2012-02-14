@@ -136,7 +136,7 @@ class Plugin extends \ManiaLive\PluginHandler\Plugin implements \ManiaLive\Plugi
 			{
 				$this->configServer($datas);
 				//TODO Change to start on internet
-				$this->connection->startServerLan();
+				$this->connection->startServerInternet();
 			}
 		}
 	}
