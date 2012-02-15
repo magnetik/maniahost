@@ -57,19 +57,33 @@ class Plugin extends \ManiaLive\PluginHandler\Plugin implements \ManiaLive\Plugi
 			$quotedHost = $this->db->quote(Config::getInstance()->host);
 			$port = Config::getInstance()->port;
 
-			$result = $this->db->query(
-					'SELECT R.* FROM Rents R '.
-					'INNER JOIN Servers S ON S.idRent = R.id '.
-					'WHERE NOT ISNULL(S.idRent) '.
-					'AND UNIX_TIMESTAMP(R.rentDate) + R.duration * 3600 > UNIX_TIMESTAMP() '.
-					'AND S.hostname = %s AND S.port = %d '.
-					'LIMIT 1', $quotedHost, $port
-			);
-			$datas = $result->fetchAssoc();
-			if($datas)
+			try
 			{
-				$this->configServer($datas);
-				$this->connection->startServerInternet();
+				$this->db->execute('START TRANSACTION');
+				$result = $this->db->query(
+						'SELECT R.* FROM Rents R '.
+						'INNER JOIN Servers S ON S.idRent = R.id '.
+						'WHERE NOT ISNULL(S.idRent) '.
+						'AND UNIX_TIMESTAMP(R.rentDate) + R.duration * 3600 > UNIX_TIMESTAMP() '.
+						'AND S.hostname = %s AND S.port = %d '.
+						'LIMIT 1', $quotedHost, $port
+				);
+				$datas = $result->fetchAssoc();
+				if($datas)
+				{
+					$this->configServer($datas);
+					$this->db->execute('UPDATE Servers SET idRent = %d WHERE hostname = %s AND port = %d',
+							$datas['id'], $quotedHost, $port);
+
+					$this->configPlugin(strtotime($datas['rentDate']),
+							$datas['duration'] * 3600);
+					$this->connection->startServerInternet();
+				}
+				$this->db->execute('COMMIT');
+			}
+			catch(\Exception $e)
+			{
+				$this->db->execute('ROLLBACK');
 			}
 		}
 		else
@@ -122,21 +136,37 @@ class Plugin extends \ManiaLive\PluginHandler\Plugin implements \ManiaLive\Plugi
 	{
 		if($this->storage->serverStatus->code == Status::WAITING)
 		{
-			$result = $this->db->query(
-					'SELECT R.* FROM Rents R '.
-					'LEFT JOIN Servers S ON S.idRent = R.id '.
-					'WHERE (UNIX_TIMESTAMP(rentDate) + duration * 3600 > UNIX_TIMESTAMP() '.
-					'AND rentDate <= NOW() AND S.idRent IS NULL) '.
-					'OR (NOT ISNULL(S.idRent) '.
-					'AND UNIX_TIMESTAMP(R.rentDate) + R.duration * 3600 > UNIX_TIMESTAMP()) '.
-					'LIMIT 1'
-			);
-			$datas = $result->fetchAssoc();
-			if($datas)
+			try
 			{
-				$this->configServer($datas);
-				//TODO Change to start on internet
-				$this->connection->startServerInternet();
+				$this->db->execute('START TRANSACTION');
+				$result = $this->db->query(
+						'SELECT R.* FROM Rents R '.
+						'LEFT JOIN Servers S ON S.idRent = R.id '.
+						'WHERE (UNIX_TIMESTAMP(rentDate) + duration * 3600 > UNIX_TIMESTAMP() '.
+						'AND rentDate <= NOW() AND S.idRent IS NULL) '.
+						'OR (NOT ISNULL(S.idRent) '.
+						'AND UNIX_TIMESTAMP(R.rentDate) + R.duration * 3600 > UNIX_TIMESTAMP()) '.
+						'LIMIT 1'
+				);
+				$datas = $result->fetchAssoc();
+				if($datas)
+				{
+					$quotedHost = $this->db->quote(Config::getInstance()->host);
+					$port = Config::getInstance()->port;
+
+					$this->configServer($datas);
+					$this->db->execute('UPDATE Servers SET idRent = %d WHERE hostname = %s AND port = %d',
+							$datas['id'], $quotedHost, $port);
+
+					$this->configPlugin(strtotime($datas['rentDate']),
+							$datas['duration'] * 3600);
+					$this->connection->startServerInternet();
+				}
+				$this->db->execute('COMMIT');
+			}
+			catch(\Exception $e)
+			{
+				$this->db->execute('ROLLBACK');
 			}
 		}
 	}
@@ -167,14 +197,6 @@ class Plugin extends \ManiaLive\PluginHandler\Plugin implements \ManiaLive\Plugi
 		$this->connection->setGameInfos($gameInfos);
 		$this->connection->setServerOptions($serverOptions);
 		$this->connection->addMapList($maps);
-
-		$quotedHost = $this->db->quote(Config::getInstance()->host);
-		$port = Config::getInstance()->port;
-
-		$this->db->execute('UPDATE Servers SET idRent = %d WHERE hostname = %s AND port = %d',
-				$datas['id'], $quotedHost, $port);
-
-		$this->configPlugin(strtotime($datas['rentDate']), $datas['duration'] * 3600);
 	}
 
 	function configPlugin($startDate, $duration)
