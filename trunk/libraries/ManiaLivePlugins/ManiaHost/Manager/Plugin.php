@@ -59,7 +59,6 @@ class Plugin extends \ManiaLive\PluginHandler\Plugin implements \ManiaLive\Plugi
 
 			try
 			{
-				$this->db->execute('START TRANSACTION');
 				$result = $this->db->query(
 						'SELECT R.* FROM Rents R '.
 						'INNER JOIN Servers S ON S.idRent = R.id '.
@@ -74,16 +73,17 @@ class Plugin extends \ManiaLive\PluginHandler\Plugin implements \ManiaLive\Plugi
 					$this->configServer($datas);
 					$this->db->execute('UPDATE Servers SET idRent = %d WHERE hostname = %s AND port = %d',
 							$datas['id'], $quotedHost, $port);
-
-					$this->configPlugin(strtotime($datas['rentDate']),
-							$datas['duration'] * 3600);
-					$this->connection->startServerInternet();
+					if($this->db->affectedRows())
+					{
+						$this->configPlugin(strtotime($datas['rentDate']),
+								$datas['duration'] * 3600);
+						$this->connection->startServerInternet();
+					}
 				}
-				$this->db->execute('COMMIT');
 			}
 			catch(\Exception $e)
 			{
-				$this->db->execute('ROLLBACK');
+
 			}
 		}
 		else
@@ -138,14 +138,13 @@ class Plugin extends \ManiaLive\PluginHandler\Plugin implements \ManiaLive\Plugi
 		{
 			try
 			{
-				$this->db->execute('START TRANSACTION');
 				$result = $this->db->query(
 						'SELECT R.* FROM Rents R '.
 						'LEFT JOIN Servers S ON S.idRent = R.id '.
 						'WHERE (UNIX_TIMESTAMP(rentDate) + duration * 3600 > UNIX_TIMESTAMP() '.
 						'AND rentDate <= NOW() AND S.idRent IS NULL) '.
 						'OR (NOT ISNULL(S.idRent) '.
-						'AND UNIX_TIMESTAMP(R.rentDate) + R.duration * 3600 > UNIX_TIMESTAMP()) '.
+						'AND UNIX_TIMESTAMP(R.rentDate) + R.duration * 3600 < UNIX_TIMESTAMP()) '.
 						'LIMIT 1'
 				);
 				$datas = $result->fetchAssoc();
@@ -158,15 +157,17 @@ class Plugin extends \ManiaLive\PluginHandler\Plugin implements \ManiaLive\Plugi
 					$this->db->execute('UPDATE Servers SET idRent = %d WHERE hostname = %s AND port = %d',
 							$datas['id'], $quotedHost, $port);
 
-					$this->configPlugin(strtotime($datas['rentDate']),
-							$datas['duration'] * 3600);
-					$this->connection->startServerInternet();
+					if($this->db->affectedRows())
+					{
+						$this->configPlugin(strtotime($datas['rentDate']),
+								$datas['duration'] * 3600);
+						$this->connection->startServerInternet();
+					}
 				}
-				$this->db->execute('COMMIT');
 			}
 			catch(\Exception $e)
 			{
-				$this->db->execute('ROLLBACK');
+				
 			}
 		}
 	}

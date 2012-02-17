@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS `Servers` (
   `idRent` int(11) DEFAULT NULL,
   PRIMARY KEY (`hostname`,`port`),
   UNIQUE KEY `login` (`login`),
-  KEY `FK_Servers_Rents` (`idRent`),
+  UNIQUE INDEX `idRent` (`idRent`),
   CONSTRAINT `FK_Servers_Rents` FOREIGN KEY (`idRent`) REFERENCES `Rents` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
