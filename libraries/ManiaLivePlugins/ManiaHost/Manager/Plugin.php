@@ -13,6 +13,7 @@ use ManiaLive\DedicatedApi\Config;
 use ManiaLivePlugins\ManiaHost\Manager\Config as ManagerConfig;
 use ManiaLive\DedicatedApi\Structures\GameInfos;
 use ManiaLive\DedicatedApi\Structures\Status;
+use ManiaLive\DedicatedApi\Structures\Map;
 
 class Plugin extends \ManiaLive\PluginHandler\Plugin implements \ManiaLive\PluginHandler\WaitingCompliant
 {
@@ -83,26 +84,33 @@ class Plugin extends \ManiaLive\PluginHandler\Plugin implements \ManiaLive\Plugi
 			}
 			catch(\Exception $e)
 			{
-
+				\ManiaLive\Utilities\Console::printDebug($e);
 			}
 		}
 		else
 		{
-			$quotedHost = $this->db->quote(Config::getInstance()->host);
-			$port = Config::getInstance()->port;
-
-			$result = $this->db->query(
-					'SELECT R.rentDate, R.duration FROM Rents R '.
-					'INNER JOIN Servers S ON S.idRent = R.id '.
-					'WHERE NOT ISNULL(S.idRent) '.
-					'AND UNIX_TIMESTAMP(R.rentDate) + R.duration * 3600 > UNIX_TIMESTAMP() '.
-					'AND S.hostname = %s AND S.port = %d '.
-					'LIMIT 1', $quotedHost, $port
-			);
-			$datas = $result->fetchRow();
-			if($datas)
+			try
 			{
-				$this->configPlugin(strtotime($datas[0]), $datas[1] * 3600);
+				$quotedHost = $this->db->quote(Config::getInstance()->host);
+				$port = Config::getInstance()->port;
+
+				$result = $this->db->query(
+						'SELECT R.rentDate, R.duration FROM Rents R '.
+						'INNER JOIN Servers S ON S.idRent = R.id '.
+						'WHERE NOT ISNULL(S.idRent) '.
+						'AND UNIX_TIMESTAMP(R.rentDate) + R.duration * 3600 > UNIX_TIMESTAMP() '.
+						'AND S.hostname = %s AND S.port = %d '.
+						'LIMIT 1', $quotedHost, $port
+				);
+				$datas = $result->fetchRow();
+				if($datas)
+				{
+					$this->configPlugin(strtotime($datas[0]), $datas[1] * 3600);
+				}
+			}
+			catch(\Exception $e)
+			{
+				\ManiaLive\Utilities\Console::printDebug($e);
 			}
 		}
 	}
@@ -167,7 +175,7 @@ class Plugin extends \ManiaLive\PluginHandler\Plugin implements \ManiaLive\Plugi
 			}
 			catch(\Exception $e)
 			{
-				
+				\ManiaLive\Utilities\Console::printDebug($e);
 			}
 		}
 	}
@@ -191,6 +199,17 @@ class Plugin extends \ManiaLive\PluginHandler\Plugin implements \ManiaLive\Plugi
 
 	function configServer(array $datas)
 	{
+		$files = $this->connection->getMapList(-1, 0);
+		$files = array_map(function (Map $m)
+				{
+					return $m->fileName;
+				}, $files);
+
+		if($files)
+		{
+			$this->connection->removeMapList($files);
+		}
+
 		$gameInfos = unserialize($datas['gameInfos']);
 		$serverOptions = unserialize($datas['serverOptions']);
 		$maps = unserialize($datas['maps']);
