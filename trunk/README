@@ -1,0 +1,14 @@
+ManiaHost - PHP software of server hosting
+===================================================
+
+ManiaHost is a PHP software based on ManiaLib. It allows you to create an hosting
+system. With this software, you are able to rent servers to players for planets.
+
+This package contains the Maniaplanet WebServices SDK, ManiaLive & ManiaLib.
+Everyting is released under the GNU LESSER GENERAL PUBLIC LICENSE Version 3.
+
+Useful links
+------------
+
+Google Code project: http://code.google.com/p/maniahost/
+Support topic: http://forum.maniaplanet.com/viewforum.php?f=331

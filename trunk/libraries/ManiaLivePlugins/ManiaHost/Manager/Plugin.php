@@ -18,9 +18,8 @@ use ManiaLive\DedicatedApi\Structures\Map;
 class Plugin extends \ManiaLive\PluginHandler\Plugin implements \ManiaLive\PluginHandler\WaitingCompliant
 {
 
-	protected $duration = null;
-	protected $startDate = null;
-	protected $timeleft = null;
+	protected $stopTime = null;
+	protected $tick = 0;
 
 	function onLoad()
 	{
@@ -46,97 +45,44 @@ class Plugin extends \ManiaLive\PluginHandler\Plugin implements \ManiaLive\Plugi
 		);
 		$this->enableDedicatedEvents();
 		$this->enableApplicationEvents();
-		$this->enableTickerEvent();
-		if($this->storage->serverStatus->code != Status::WAITING)
-				$this->connection->stopServer();
 	}
 
 	function onReady()
 	{
-		if($this->storage->serverStatus->code == Status::WAITING)
+		$quotedHost = $this->db->quote(Config::getInstance()->host);
+		$port = Config::getInstance()->port;
+		try
 		{
-			$quotedHost = $this->db->quote(Config::getInstance()->host);
-			$port = Config::getInstance()->port;
-
-			try
+			$result = $this->db->query(
+					'SELECT R.* FROM Rents R '.
+					'INNER JOIN Servers S ON S.idRent = R.id '.
+					'WHERE NOT ISNULL(S.idRent) '.
+					'AND DATE_ADD(R.rentDate, INTERVAL R.duration HOUR) > NOW() '.
+					'AND S.hostname = %s AND S.port = %d '.
+					'LIMIT 1', $quotedHost, $port
+			);
+			$datas = $result->fetchAssoc();
+			if($datas)
 			{
-				$result = $this->db->query(
-						'SELECT R.* FROM Rents R '.
-						'INNER JOIN Servers S ON S.idRent = R.id '.
-						'WHERE NOT ISNULL(S.idRent) '.
-						'AND UNIX_TIMESTAMP(R.rentDate) + R.duration * 3600 > UNIX_TIMESTAMP() '.
-						'AND S.hostname = %s AND S.port = %d '.
-						'LIMIT 1', $quotedHost, $port
-				);
-				$datas = $result->fetchAssoc();
-				if($datas)
+				if($this->storage->serverStatus->code == Status::WAITING)
 				{
 					$this->configServer($datas);
 					$this->db->execute('UPDATE Servers SET idRent = %d WHERE hostname = %s AND port = %d',
 							$datas['id'], $quotedHost, $port);
-					if($this->db->affectedRows())
-					{
-						$this->configPlugin(strtotime($datas['rentDate']),
-								$datas['duration'] * 3600);
-						$this->connection->startServerInternet();
-					}
+					$this->configPlugin(strtotime($datas['rentDate']),
+							$datas['duration'] * 3600);
+					$this->connection->startServerInternet();
 				}
-			}
-			catch(\Exception $e)
-			{
-				\ManiaLive\Utilities\Console::printDebug($e);
-			}
-		}
-		else
-		{
-			try
-			{
-				$quotedHost = $this->db->quote(Config::getInstance()->host);
-				$port = Config::getInstance()->port;
-
-				$result = $this->db->query(
-						'SELECT R.rentDate, R.duration FROM Rents R '.
-						'INNER JOIN Servers S ON S.idRent = R.id '.
-						'WHERE NOT ISNULL(S.idRent) '.
-						'AND UNIX_TIMESTAMP(R.rentDate) + R.duration * 3600 > UNIX_TIMESTAMP() '.
-						'AND S.hostname = %s AND S.port = %d '.
-						'LIMIT 1', $quotedHost, $port
-				);
-				$datas = $result->fetchRow();
-				if($datas)
+				else
 				{
-					$this->configPlugin(strtotime($datas[0]), $datas[1] * 3600);
+					$this->configPlugin(strtotime($datas['rentDate']),
+							$datas['duration'] * 3600);
 				}
 			}
-			catch(\Exception $e)
-			{
-				\ManiaLive\Utilities\Console::printDebug($e);
-			}
 		}
-	}
-
-	function onTick()
-	{
-		if($this->timeleft)
+		catch(\Exception $e)
 		{
-			$this->timeleft--;
-			if($this->timeleft == 0)
-			{
-				$this->timeleft = null;
-				$this->duration = null;
-				$this->startDate = null;
-				$maps = $this->connection->getMapList(-1, 0);
-				$filenames = \ManiaLive\DedicatedApi\Structures\Map::getPropertyFromArray($maps,
-								'fileName');
-				$this->connection->removeMapList($filenames);
-				$this->connection->stopServer();
-
-				$quotedHost = $this->db->quote(Config::getInstance()->host);
-				$port = Config::getInstance()->port;
-
-				$this->db->execute('UPDATE Servers SET idRent = NULL WHERE hostname = %s AND port = %d',
-						$quotedHost, $port);
-			}
+			\ManiaLive\Application\ErrorHandling::displayAndLogError($e);
 		}
 	}
 
@@ -146,13 +92,19 @@ class Plugin extends \ManiaLive\PluginHandler\Plugin implements \ManiaLive\Plugi
 		{
 			try
 			{
+				$result = $this->db->query('SELECT idRent FROM Servers WHERE NOT ISNULL(idRent)');
+
+				$ids = array();
+				while($tmp = $result->fetchScalar())
+				{
+					$ids[] = $tmp;
+				}
+
 				$result = $this->db->query(
 						'SELECT R.* FROM Rents R '.
-						'LEFT JOIN Servers S ON S.idRent = R.id '.
-						'WHERE (UNIX_TIMESTAMP(rentDate) + duration * 3600 > UNIX_TIMESTAMP() '.
-						'AND rentDate <= NOW() AND S.idRent IS NULL) '.
-						'OR (NOT ISNULL(S.idRent) '.
-						'AND UNIX_TIMESTAMP(R.rentDate) + R.duration * 3600 < UNIX_TIMESTAMP()) '.
+						'WHERE DATE_ADD(rentDate, INTERVAL duration HOUR) > NOW() '.
+						'AND rentDate <= NOW() '.
+						($ids ? 'AND id NOT IN('.implode(',', $ids).')' : '').
 						'LIMIT 1'
 				);
 				$datas = $result->fetchAssoc();
@@ -175,7 +127,32 @@ class Plugin extends \ManiaLive\PluginHandler\Plugin implements \ManiaLive\Plugi
 			}
 			catch(\Exception $e)
 			{
-				\ManiaLive\Utilities\Console::printDebug($e);
+				\ManiaLive\Application\ErrorHandling::displayAndLogError($e);
+			}
+		}
+		elseif(time() > $this->stopTime)
+		{
+			$this->timeleft--;
+			if($this->timeleft == 0)
+			{
+				$this->timeleft = null;
+				$this->duration = null;
+				$this->startDate = null;
+				$this->connection->stopServer();
+				$maps = $this->connection->getMapList(-1, 0);
+				$filenames = array_map(function ($m)
+						{
+							return $m->fileName;
+						}, $maps);
+				$this->connection->removeMapList($filenames);
+
+				$quotedHost = $this->db->quote(Config::getInstance()->host);
+				$port = Config::getInstance()->port;
+
+				$this->clearFiles();
+
+				$this->db->execute('UPDATE Servers SET idRent = NULL WHERE hostname = %s AND port = %d',
+						$quotedHost, $port);
 			}
 		}
 	}
@@ -221,9 +198,47 @@ class Plugin extends \ManiaLive\PluginHandler\Plugin implements \ManiaLive\Plugi
 
 	function configPlugin($startDate, $duration)
 	{
-		$this->startDate = $startDate;
-		$this->duration = $duration;
-		$this->timeleft = $this->duration + $this->startDate - time();
+		$this->stopTime = $startDate + $duration;
+	}
+
+	function clearFiles()
+	{
+		try
+		{
+			$login = $this->db->query(
+							'SELECT playerLogin FROM Servers S '.
+							'INNER JOIN Rents R ON S.idRent = R.id '.
+							'WHERE hostname = %s AND port = %d',
+							$this->db->quote(Config::getInstance()->host),
+							Config::getInstance()->port
+					)->fetchScalar();
+
+			$count = $this->db->query(
+							'SELECT count(*) '.
+							'FROM Rents '.
+							'WHERE DATE_ADD(rentDate, INTERVAL duration HOUR) > NOW() '.
+							'AND playerLogin = %s', $this->db->quote($login)
+					)->fetchScalar();
+
+			$filesPath = realpath(\ManiaLive\Config\Config::getInstance()->dedicatedPath).DIRECTORY_SEPARATOR.'UserData'.DIRECTORY_SEPARATOR.'Maps'.DIRECTORY_SEPARATOR;
+
+			if($count && file_exists($filesPath.'$uploaded'.DIRECTORY_SEPARATOR.$login))
+			{
+				$maps = scandir($filesPath.'$uploaded'.DIRECTORY_SEPARATOR.$login);
+				foreach($maps as $map)
+				{
+					if($map != '..' && $map != '.')
+					{
+						unlink($filesPath.'$uploaded'.DIRECTORY_SEPARATOR.$login.DIRECTORY_SEPARATOR.$map);
+					}
+				}
+				rmdir($filesPath.'$uploaded'.DIRECTORY_SEPARATOR.$login);
+			}
+		}
+		catch(\Exception $e)
+		{
+			\ManiaLive\Application\ErrorHandling::displayAndLogError($e);
+		}
 	}
 
 }
