@@ -17,32 +17,21 @@ class MapService
 		$workPath = $this->securePath($path);
 		$maps = array();
 
+		if($workPath === false)
+		{
+			return $maps;
+		}
+
 		if($recursive)
 		{
-			$files = scandir($workPath);
-			foreach($files as $filename)
-			{
-				if($filename != '.' && $filename != '..' && is_dir($workPath.DIRECTORY_SEPARATOR.$filename))
-				{
-					$datas = $this->getList($path.DIRECTORY_SEPARATOR.$filename, $recursive);
-					$maps = array_merge($maps, $datas);
-				}
-				elseif(stristr($path.$filename, 'map.gbx'))
-				{
-					$file = new Map();
-					$file->isDirectory = false;
-					$file->filename = $filename;
-					$file->path = $path;
-					$maps[] = $file;
-				}
-			}
+			$maps = $this->doRecursiveSearch($workPath);
 		}
 		else
 		{
 			$files = scandir($workPath);
 			foreach($files as $filename)
 			{
-				if(stristr($filename, 'map.gbx') || (is_dir($workPath.$filename) && $filename != '.' && $filename != '..'))
+				if(stristr($filename, 'map.gbx') || (is_dir($workPath.$filename) && $filename != '.' && $filename != '..' && $filename != '$uploaded'))
 				{
 					$file = new Map();
 					$file->isDirectory = is_dir($workPath.$filename);
@@ -53,9 +42,30 @@ class MapService
 			}
 		}
 		usort($maps, array($this, 'fileSortCallback'));
+
 		if($offset !== null)
 		{
-			return array_slice($maps, $offset, $length);
+			$maps = array_slice($maps, $offset, $length);
+		}
+
+		foreach($maps as $key => $map)
+		{
+			try
+			{
+				$datas = $this->getData($map->path.DIRECTORY_SEPARATOR.$map->filename);
+			}
+			catch(\Exception $e)
+			{
+				$datas['name'] = stristr($map->filename, '.map.gbx', true);
+				$datas['author'] = '';
+				$datas['authorTime'] = '';
+				$datas['environment'] = '';
+			}
+			$map->name = $datas['name'];
+			$map->author = $datas['author'];
+			$map->authorTime = $datas['authorTime'];
+			$map->environment = $datas['environment'];
+			$maps[$key] = $map;
 		}
 
 		return $maps;
@@ -63,15 +73,80 @@ class MapService
 
 	function getCount($path, $recursive = false)
 	{
-		$maps = $this->getList($path, $recursive);
-		$maps = array_map(function (Map $f)
+		$count = 0;
+		$workPath = $this->securePath($path);
+
+		if($workPath === false)
+		{
+			return $count;
+		}
+
+		if($recursive)
+		{
+			$files = scandir($path);
+			foreach($files as $filename)
+			{
+				if($filename != '$uploaded' && $filename != '.' && $filename != '..' && is_dir($path.DIRECTORY_SEPARATOR.$filename))
 				{
-					if(!$f->isDirectory)
-					{
-						return $f;
-					}
-				}, $maps);
-		return count($maps);
+					$count += $this->getCount($path.DIRECTORY_SEPARATOR.$filename, true);
+				}
+				elseif(preg_match('/(\\.map\\.gbx)$/ixu', $path.$filename))
+				{
+					$count++;
+				}
+			}
+		}
+		else
+		{
+			$files = scandir($workPath);
+			foreach($files as $filename)
+			{
+				if(preg_match('/(\\.map\\.gbx)$/ixu', $path.$filename))
+				{
+					$count++;
+				}
+			}
+		}
+		return $count;
+	}
+
+	function getSize($path, $recursive = false)
+	{
+		$size = 0;
+		$workPath = $this->securePath($path);
+
+		if($workPath === false)
+		{
+			return $size;
+		}
+
+		if($recursive)
+		{
+			$files = scandir($path);
+			foreach($files as $filename)
+			{
+				if($filename != '$uploaded' && $filename != '.' && $filename != '..' && is_dir($path.$filename))
+				{
+					$size += $this->getSize($path.$filename.DIRECTORY_SEPARATOR, $recursive);
+				}
+				elseif(preg_match('/(\\.map\\.gbx)$/ixu', $path.$filename))
+				{
+					$size += filesize($path.$filename);
+				}
+			}
+		}
+		else
+		{
+			$files = scandir($workPath);
+			foreach($files as $filename)
+			{
+				if(preg_match('/(\\.map\\.gbx)$/ixu', $path.$filename))
+				{
+					$size += filesize($path.$filename);
+				}
+			}
+		}
+		return $size;
 	}
 
 	function getData($filename)
@@ -114,6 +189,30 @@ class MapService
 		return $infos;
 	}
 
+	protected function doRecursiveSearch($path)
+	{
+		$maps = array();
+
+		$files = scandir($path);
+		foreach($files as $filename)
+		{
+			if($filename != '$uploaded' && $filename != '.' && $filename != '..' && is_dir($path.$filename.DIRECTORY_SEPARATOR))
+			{
+				$datas = $this->doRecursiveSearch($path.$filename.DIRECTORY_SEPARATOR);
+				$maps = array_merge($maps, $datas);
+			}
+			elseif(stristr($path.$filename, 'map.gbx'))
+			{
+				$file = new Map();
+				$file->isDirectory = false;
+				$file->filename = $filename;
+				$file->path = $path;
+				$maps[] = $file;
+			}
+		}
+		return $maps;
+	}
+
 	protected function fileSortCallback(Map $a, Map $b)
 	{
 		if($a->isDirectory && !$b->isDirectory)
@@ -132,7 +231,15 @@ class MapService
 
 	protected function securePath($path)
 	{
-		return realpath((stripos(PHP_OS, 'WIN') === 0 ? utf8_decode($path) : $path)).DIRECTORY_SEPARATOR;
+		$path = realpath((stripos(PHP_OS, 'WIN') === 0 ? utf8_decode($path) : $path));
+		if($path === false)
+		{
+			return false;
+		}
+		else
+		{
+			return $path.DIRECTORY_SEPARATOR;
+		}
 	}
 
 }

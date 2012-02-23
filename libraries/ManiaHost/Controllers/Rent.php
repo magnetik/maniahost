@@ -216,8 +216,91 @@ class Rent extends AbstractController
 		$this->request->redirectArgList('../select-map/');
 	}
 
-	function selectMap($path = '')
+	function selectMap()
 	{
+		$this->request->registerReferer();
+	}
+
+	function upload($message = '')
+	{
+		$path = realpath(\ManiaHost\Config::getInstance()->pathToDedicated).DIRECTORY_SEPARATOR;
+		$path .= 'UserData'.DIRECTORY_SEPARATOR.'Maps'.DIRECTORY_SEPARATOR.'$uploaded'.DIRECTORY_SEPARATOR.$this->session->login.DIRECTORY_SEPARATOR;
+
+		$mapService = new \ManiaHost\Services\MapService();
+		$size = $mapService->getSize($path, true);
+
+		$availableSpace = 20 * pow(2, 20) - $size;
+		$this->response->message = $message;
+		$this->response->availableSpace = $availableSpace;
+		$this->response->hRatioProgressBar = 1 - $availableSpace / (20 * pow(2, 20));
+	}
+
+	function doUpload($file)
+	{
+		if(!preg_match('/(\.map\.gbx)$/ixu', $file))
+		{
+			throw new \ManiaLib\Application\UserException('Please upload only maps');
+		}
+
+		$path = realpath(\ManiaHost\Config::getInstance()->pathToDedicated).DIRECTORY_SEPARATOR;
+		$path .= 'UserData'.DIRECTORY_SEPARATOR.'Maps'.DIRECTORY_SEPARATOR.'$uploaded'.DIRECTORY_SEPARATOR.$this->session->login.DIRECTORY_SEPARATOR;
+
+		if(!file_exists($path))
+		{
+			mkdir($path, 0770, true);
+		}
+
+		$mapService = new \ManiaHost\Services\MapService();
+		$maxSize = 20 * pow(2, 20) - $mapService->getSize($path, true);
+		$maxSize = ($maxSize > pow(2, 20) ? pow(2, 20) : $maxSize);
+
+		\ManiaLib\Utils\Upload::uploadFile($path, $file, $maxSize);
+		$this->request->set('message', 'file successfully uploaded');
+		$this->request->redirectArgList('../upload/', 'message');
+	}
+
+	function myMaps()
+	{
+		$this->request->registerReferer();
+
+		$rentService = new \ManiaHost\Services\RentService();
+		$used = $rentService->getUsedFilenames($this->session->login);
+
+		$path = realpath(\ManiaHost\Config::getInstance()->pathToDedicated).DIRECTORY_SEPARATOR;
+		$path.= 'UserData'.DIRECTORY_SEPARATOR.'Maps'.DIRECTORY_SEPARATOR.'$uploaded'.DIRECTORY_SEPARATOR.$this->session->login;
+		$mapService = new \ManiaHost\Services\MapService();
+		$count = $mapService->getCount($path);
+
+		if(!$count)
+		{
+			$this->request->redirect('../upload/');
+		}
+
+		$multipage = new \ManiaLib\Utils\MultipageList();
+		$multipage->setPerPage(12);
+		$multipage->setSize($count);
+
+		list($offset, $length) = $multipage->getLimit();
+
+		$files = $mapService->getList($path, true, $offset, $length);
+
+		$this->chooseSelector($path, true);
+
+		$mapPath = realpath(\ManiaHost\Config::getInstance()->pathToDedicated).DIRECTORY_SEPARATOR.'UserData'.DIRECTORY_SEPARATOR.'Maps';
+		$path = str_ireplace($mapPath, '', $path);
+
+		$this->response->path = $path;
+		$this->response->files = $files;
+		$this->response->mapCount = $count;
+		$this->response->multipage = $multipage;
+		$this->response->selected = $this->session->get('selected', array());
+		$this->response->used = $used;
+	}
+
+	function defaultMaps($path = '')
+	{
+		$this->request->registerReferer();
+
 		$path = realpath(\ManiaHost\Config::getInstance()->pathToDedicated).DIRECTORY_SEPARATOR.'UserData'.DIRECTORY_SEPARATOR.'Maps'.$path;
 
 		$fileService = new \ManiaHost\Services\MapService();
@@ -232,31 +315,12 @@ class Rent extends AbstractController
 
 		$files = $fileService->getList($path, true, $offset, $length);
 
-		foreach($files as $key => $map)
-		{
-			try
-			{
-				$datas = $fileService->getData($map->path.DIRECTORY_SEPARATOR.$map->filename);
-			}
-			catch(\Exception $e)
-			{
-				$datas['name'] = stristr($map->filename, '.map.gbx', true);
-				$datas['author'] = '';
-				$datas['authorTime'] = '';
-				$datas['environment'] = '';
-			}
-			$map->name = $datas['name'];
-			$map->author = $datas['author'];
-			$map->authorTime = $datas['authorTime'];
-			$map->environment = $datas['environment'];
-			$files[$key] = $map;
-		}
+		$this->chooseSelector($path, true);
 
 		$this->response->files = $files;
 		$this->response->mapCount = $count;
 		$this->response->multipage = $multipage;
 		$this->response->selected = $this->session->get('selected', array());
-		$this->response->cost = $this->session->getStrict('duration') * \ManiaHost\Config::getInstance()->hourlyCost;
 	}
 
 	function checkout()
@@ -337,7 +401,7 @@ class Rent extends AbstractController
 
 		$selected = array_unique($selected);
 		$this->session->set('selected', $selected);
-		$this->request->redirect('../selectMap');
+		$this->request->redirectToReferer();
 	}
 
 	function unselect($filename)
@@ -353,7 +417,7 @@ class Rent extends AbstractController
 			}
 			$this->session->set('selected', $selected);
 		}
-		$this->request->redirect('../selectMap');
+		$this->request->redirectToReferer();
 	}
 
 	function selectAll($path = '')
@@ -362,19 +426,51 @@ class Rent extends AbstractController
 
 		$fileService = new \ManiaHost\Services\MapService();
 		$files = $fileService->getList($path, true);
-		$object = $this;
-		$files = array_map(function (\ManiaHost\Services\Map $m) use ($object)
+		$files = array_map(function (\ManiaHost\Services\Map $m)
 				{
-					return $m->path.DIRECTORY_SEPARATOR.$m->filename;
+					return $m->path.$m->filename;
 				}, $files);
+		$files = array_merge($files, $this->session->get('selected', array()));
+		$files = array_unique($files);
 		$this->session->set('selected', $files);
-		$this->request->redirect('../select-map');
+		$this->request->redirectToReferer();
 	}
 
 	function unselectAll($path = '')
 	{
-		$this->session->set('selected', array());
-		$this->request->redirect('../select-map');
+		$path = realpath(\ManiaHost\Config::getInstance()->pathToDedicated).DIRECTORY_SEPARATOR.'UserData'.DIRECTORY_SEPARATOR.'Maps'.$path;
+
+		$mapService = new \ManiaHost\Services\MapService();
+		$maps = $mapService->getList($path);
+		$maps = array_map(function (\ManiaHost\Services\Map $m)
+				{
+					return $m->path.DIRECTORY_SEPARATOR.$m->filename;
+				}, $maps);
+
+		$selected = array_diff($this->session->get('selected', array()), $maps);
+		$this->session->set('selected', $selected);
+		$this->request->redirectToReferer();
+	}
+
+	function deleteMap($filename)
+	{
+		if(file_exists($filename))
+		{
+			unlink($filename);
+		}
+
+		$selected = $this->session->get('selected', array());
+		$this->request->delete('filename');
+		$keys = array_keys($selected, $filename);
+		if(count($keys))
+		{
+			foreach($keys as $key)
+			{
+				unset($selected[$key]);
+			}
+			$this->session->set('selected', $selected);
+		}
+		$this->request->redirectToReferer();
 	}
 
 	function changeMapDownload($allowDownload = true)
@@ -405,6 +501,35 @@ class Rent extends AbstractController
 	{
 		$search = realpath(\ManiaHost\Config::getInstance()->pathToDedicated).DIRECTORY_SEPARATOR.'UserData'.DIRECTORY_SEPARATOR.'Maps'.DIRECTORY_SEPARATOR;
 		return str_ireplace($search, '', $filename);
+	}
+
+	protected function chooseSelector($path, $recursive)
+	{
+		$mapService = new \ManiaHost\Services\MapService();
+		$maps = $mapService->getList($path);
+		$maps = array_map(function (\ManiaHost\Services\Map $m)
+				{
+					return $m->path.DIRECTORY_SEPARATOR.$m->filename;
+				}, $maps);
+
+		$selected = $this->session->get('selected', array());
+		$count = 0;
+		foreach($maps as $map)
+		{
+			if(in_array($map, $selected))
+			{
+				$count++;
+			}
+		}
+
+		if($count == count($maps))
+		{
+			$this->response->selector = '../unselect-all/';
+		}
+		else
+		{
+			$this->response->selector = '../select-all/';
+		}
 	}
 
 }

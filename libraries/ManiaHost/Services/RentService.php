@@ -25,8 +25,8 @@ class RentService extends AbstractService
 				'WHERE playerLogin = %s '.
 				'AND rentDate < NOW() '.
 				'AND DATE_ADD(rentDate, INTERVAL duration HOUR) > NOW() '.
-				'ORDER BY DATE_ADD(rentDate, INTERVAL duration HOUR) DESC %s',
-				$quotedLogin, \ManiaLib\Database\Tools::getLimitString($offset, $length));
+				'ORDER BY DATE_ADD(rentDate, INTERVAL duration HOUR) DESC %s', $quotedLogin,
+				\ManiaLib\Database\Tools::getLimitString($offset, $length));
 
 		return Rent::arrayFromRecordSet($result);
 	}
@@ -40,6 +40,30 @@ class RentService extends AbstractService
 						'WHERE S.idRent IS NULL '.
 						'OR UNIX_TIMESTAMP(R.rentDate)+ R.duration * 3600 < UNIX_TIMESTAMP()'
 				)->fetchSingleValue();
+	}
+
+	function getUsedFilenames($login)
+	{
+		if(!preg_match('/^[a-zA-Z0-9-_\.]{1,25}$/', $login))
+		{
+			throw new \InvalidArgumentException();
+		}
+
+		$results = $this->db()->execute(
+				'SELECT maps FROM Rents WHERE playerLogin = %s '.
+				'AND DATE_ADD(rentDate, INTERVAL duration HOUR) > NOW()',
+				$this->db()->quote($login)
+		);
+		$maps = array();
+		while($tmp = $results->fetchSingleValue())
+		{
+			if($tmp)
+			{
+				$maps = array_merge($maps, unserialize($tmp));
+			}
+		}
+		$maps = array_unique($maps);
+		return $maps;
 	}
 
 	function register(Rent $rent)
