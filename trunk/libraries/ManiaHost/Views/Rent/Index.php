@@ -10,6 +10,9 @@
 namespace ManiaHost\Views\Rent;
 
 use ManiaLib\Gui\Manialink;
+use ManiaLib\Gui\Cards\Navigation\Menu;
+use ManiaLib\Gui\Elements\Icons128x128_1;
+use ManiaLib\Gui\Elements\Bgs1;
 
 class Index extends \ManiaLib\Application\View
 {
@@ -29,6 +32,14 @@ class Index extends \ManiaLib\Application\View
 		{
 			$ui->addItem();
 			$ui->lastItem->text->setText('Rent a server');
+			$ui->lastItem->setManialink($manialink);
+		}
+		if($this->response->isAdmin)
+		{
+			$manialink = $this->request->createLinkArgList('/admin/');
+			$ui->addItem(Menu::BUTTONS_BOTTOM);
+			$ui->lastItem->text->setText('Admin panel');
+			$ui->lastItem->icon->setSubStyle(Icons128x128_1::Options);
 			$ui->lastItem->setManialink($manialink);
 		}
 		$ui->save();
@@ -59,18 +70,24 @@ class Index extends \ManiaLib\Application\View
 					$remaining = round(((double) $remaining) / 3600, 2);
 
 					$card = new \ManiaHost\Cards\Rent();
-					$card->setManialink('maniaplanet://#join='.$rent->login);
 					$card->name->setText(sprintf('%s', $rent->serverOptions['Name']));
 					if($rent->login)
 					{
-					$card->login->setText(sprintf('$oserver login$o: %s', $rent->login));
+						$card->login->setText(sprintf('$oserver login$o: %s', $rent->login));
+						$card->setManialink('maniaplanet://#join='.$rent->login);
 					}
 					else
 					{
 						$card->login->setText('Your server will start soon. Refresh the page to see it. If it does not start contact the admin.');
 					}
-					$card->remainingTime->setText(sprintf(_('$oRemaining time$o: %s hours'),
+					$card->remainingTime->setText(sprintf('$oRemaining time$o: %s hours',
 									$remaining));
+
+					$this->request->set('idRent', $rent->id);
+					$manialink = $this->request->createLink('/rent/renew/');
+					$this->request->restore('idRent');
+					$card->renew->setText('Renew');
+					$card->renew->setManialink($manialink);
 					$card->save();
 				}
 			}

@@ -29,6 +29,7 @@ class Header extends \ManiaLib\Application\Views\Header
 			$ui = new Quad(320, 180);
 			$ui->setAlign('center', 'center');
 			$ui->setImage($config->background, true);
+			$ui->setPosZ(-3);
 			$ui->save();
 		}
 

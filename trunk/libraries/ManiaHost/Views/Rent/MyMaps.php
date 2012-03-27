@@ -25,7 +25,7 @@ class MyMaps extends \ManiaLib\Application\View
 
 		$ui = new \ManiaLib\Gui\Cards\Navigation\Menu();
 		$ui->title->setText(\ManiaHost\Config::getInstance()->appName);
-		$ui->subTitle->setText(_('Select maps'));
+		$ui->subTitle->setText('Select maps');
 
 		$manialink = $this->request->createLinkArgList('../default-maps/');
 		$ui->addItem();
@@ -48,7 +48,7 @@ class MyMaps extends \ManiaLib\Application\View
 		{
 			$ui = new \ManiaLib\Gui\Cards\Panel(94, 20);
 			$ui->setHalign('center');
-			$ui->title->setText(_('Maps'));
+			$ui->title->setText('Maps');
 			$ui->save();
 
 			$ui = new Label();
@@ -97,10 +97,10 @@ class MyMaps extends \ManiaLib\Application\View
 			{
 				foreach($this->response->files as $file)
 				{
-					$this->request->set('filename', $file->path.$file->filename);
+					$this->request->set('filename', $file->path.DIRECTORY_SEPARATOR.$file->filename);
 
 					$card = new \ManiaHost\Cards\File();
-					if(in_array($file->path.$file->filename, $this->response->selected))
+					if(in_array($file->path.DIRECTORY_SEPARATOR.$file->filename, $this->response->selected))
 					{
 						$manialink = $this->request->createLink('../unselect/');
 						$card->setSubStyle(Bgs1::BgCard);
@@ -109,6 +109,10 @@ class MyMaps extends \ManiaLib\Application\View
 					{
 						$manialink = $this->request->createLink('../select/');
 					}
+
+					$card->setManialink($manialink);
+					$card->name->setText($file->name);
+
 					if(!in_array($file->path.$file->filename, $this->response->used))
 					{
 						$manialink = $this->request->createLink('../delete-map');
@@ -124,8 +128,7 @@ class MyMaps extends \ManiaLib\Application\View
 					{
 						$card->deleteIcon->setScale(0);
 					}
-					$card->setManialink($manialink);
-					$card->name->setText($file->name);
+
 					$card->save();
 				}
 			}
@@ -137,7 +140,7 @@ class MyMaps extends \ManiaLib\Application\View
 			$manialink = $this->request->createLink('../checkout');
 
 			$ui = new \ManiaLib\Gui\Elements\Button();
-			$ui->setText(_('Play'));
+			$ui->setText('Play');
 			$ui->setAlign('center', 'center2');
 			$ui->setPosition(100, -136.25);
 			$ui->setManialink($manialink);

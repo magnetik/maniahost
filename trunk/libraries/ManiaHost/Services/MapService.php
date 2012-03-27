@@ -9,144 +9,127 @@
 
 namespace ManiaHost\Services;
 
-class MapService
+class MapService extends AbstractService
 {
 
-	function getList($path, $recursive = false, $offset = null, $length = null)
+	protected $mapPath;
+
+	function __construct($mapPath)
 	{
-		$workPath = $this->securePath($path);
+		parent::__construct();
+		$this->mapPath = $mapPath;
+	}
+
+	function get($filename)
+	{
+		$result = $this->db()->execute(
+				'SELECT * FROM Maps WHERE CONCAT(path,filename) = %s',
+				$this->db()->quote($filename)
+		);
+		return Map::fromRecordSet($result);
+	}
+
+	function getUsed($login)
+	{
+		if(!preg_match('/^[a-zA-Z0-9-_\.]{1,25}$/', $login))
+		{
+			throw new \InvalidArgumentException();
+		}
+
+		$results = $this->db()->execute(
+				'SELECT maps FROM Rents WHERE playerLogin = %s '.
+				'AND DATE_ADD(rentDate, INTERVAL duration HOUR) > NOW()',
+				$this->db()->quote($login)
+		);
 		$maps = array();
-
-		if($workPath === false)
+		while($tmp = $results->fetchSingleValue())
 		{
-			return $maps;
-		}
-
-		if($recursive)
-		{
-			$maps = $this->doRecursiveSearch($workPath);
-		}
-		else
-		{
-			$files = scandir($workPath);
-			foreach($files as $filename)
+			if($tmp)
 			{
-				if(stristr($filename, 'map.gbx') || (is_dir($workPath.$filename) && $filename != '.' && $filename != '..' && $filename != '$uploaded'))
-				{
-					$file = new Map();
-					$file->isDirectory = is_dir($workPath.$filename);
-					$file->filename = $filename;
-					$file->path = $path;
-					$maps[] = $file;
-				}
+				$maps = array_merge($maps, unserialize($tmp));
 			}
 		}
-		usort($maps, array($this, 'fileSortCallback'));
+		$maps = array_unique($maps);
+		return $maps;
+	}
 
-		if($offset !== null)
-		{
-			$maps = array_slice($maps, $offset, $length);
-		}
+	function getList($path, array $excludePath = array(), $environment = null,
+			$nbLaps = null, $type = null, $mapType = null, $recursive = false,
+			$offset = null, $length = null)
+	{
+		$keys = call_user_func_array(array($this, 'getKeys'), func_get_args());
+
+		$keys = array_map(array($this->db(), 'quote'), $keys);
+
+		$result = $this->db()->execute(
+				'SELECT * FROM Maps '.
+				'WHERE CONCAT(path,filename) IN (%s)'.
+				'ORDER BY name ASC', implode(',', $keys)
+		);
+		return Map::arrayFromRecordSet($result);
+	}
+
+	function getCount($path, array $excludePath = array(), $environment = null,
+			$nbLaps = null, $type = null, $mapType = null, $recursive = false)
+	{
+		return count(call_user_func_array(array($this, 'getKeys'), func_get_args()));
+	}
+
+	function getSize($path, array $excludePath = array(), $environment = null,
+			$nbLaps = null, $type = null, $mapType = null, $recursive = false,
+			$offset = null, $length = null)
+	{
+		$keys = call_user_func_array(array($this, 'getKeys'), func_get_args());
+
+		$keys = array_map(array($this->db(), 'quote'), $keys);
+
+		return $this->db()->execute(
+						'SELECT SUM(fileSize) FROM Maps '.
+						'WHERE CONCAT(path,filename) IN (%s) ', implode(',', $keys)
+				)->fetchSingleValue();
+	}
+
+	function scanAndRegisterDir()
+	{
+		$maps = $this->doRecursiveSearch('');
 
 		foreach($maps as $key => $map)
 		{
 			try
 			{
-				$datas = $this->getData($map->path.DIRECTORY_SEPARATOR.$map->filename);
+				$datas = $this->getData($this->mapPath.$map->path.$map->filename);
+				$map->name = $datas['name'];
+				$map->author = $datas['author'];
+				$map->authorTime = $datas['authorTime'];
+				$map->environment = $datas['environment'];
+				$map->type = $datas['type'];
+				$map->nbLaps = $datas['nbLaps'];
+				$map->fileSize = filesize($this->mapPath.$map->path.$map->filename);
+				if($map->authorTime != -1)
+				{
+					$this->register($map);
+				}
 			}
 			catch(\Exception $e)
 			{
-				$datas['name'] = stristr($map->filename, '.map.gbx', true);
-				$datas['author'] = '';
-				$datas['authorTime'] = '';
-				$datas['environment'] = '';
+				throw $e;
 			}
-			$map->name = $datas['name'];
-			$map->author = $datas['author'];
-			$map->authorTime = $datas['authorTime'];
-			$map->environment = $datas['environment'];
-			$maps[$key] = $map;
 		}
-
-		return $maps;
 	}
 
-	function getCount($path, $recursive = false)
+	function register(Map $map)
 	{
-		$count = 0;
-		$workPath = $this->securePath($path);
-
-		if($workPath === false)
-		{
-			return $count;
-		}
-
-		if($recursive)
-		{
-			$files = scandir($path);
-			foreach($files as $filename)
-			{
-				if($filename != '$uploaded' && $filename != '.' && $filename != '..' && is_dir($path.DIRECTORY_SEPARATOR.$filename))
-				{
-					$count += $this->getCount($path.DIRECTORY_SEPARATOR.$filename, true);
-				}
-				elseif(preg_match('/(\\.map\\.gbx)$/ixu', $path.$filename))
-				{
-					$count++;
-				}
-			}
-		}
-		else
-		{
-			$files = scandir($workPath);
-			foreach($files as $filename)
-			{
-				if(preg_match('/(\\.map\\.gbx)$/ixu', $path.$filename))
-				{
-					$count++;
-				}
-			}
-		}
-		return $count;
-	}
-
-	function getSize($path, $recursive = false)
-	{
-		$size = 0;
-		$workPath = $this->securePath($path);
-
-		if($workPath === false)
-		{
-			return $size;
-		}
-
-		if($recursive)
-		{
-			$files = scandir($path);
-			foreach($files as $filename)
-			{
-				if($filename != '$uploaded' && $filename != '.' && $filename != '..' && is_dir($path.$filename))
-				{
-					$size += $this->getSize($path.$filename.DIRECTORY_SEPARATOR, $recursive);
-				}
-				elseif(preg_match('/(\\.map\\.gbx)$/ixu', $path.$filename))
-				{
-					$size += filesize($path.$filename);
-				}
-			}
-		}
-		else
-		{
-			$files = scandir($workPath);
-			foreach($files as $filename)
-			{
-				if(preg_match('/(\\.map\\.gbx)$/ixu', $path.$filename))
-				{
-					$size += filesize($path.$filename);
-				}
-			}
-		}
-		return $size;
+		$this->db()->execute(
+				'INSERT INTO ManiaHost.Maps VALUES (%s,%s,%s,%s,%d,%s,%d,%s,%d) '.
+				'ON DUPLICATE KEY UPDATE name = VALUES(name), author = VALUES(author), '.
+				'authorTime = VALUES(authorTime), type = VALUES(type), '.
+				'nbLaps = VALUES(nbLaps), environment = VALUES(environment), '.
+				'fileSize = VALUES(fileSize)', $this->db()->quote($map->path),
+				$this->db()->quote($map->filename), $this->db()->quote($map->name),
+				$this->db()->quote($map->author), $map->authorTime,
+				$this->db()->quote($map->type), $map->nbLaps,
+				$this->db()->quote($map->environment), $map->fileSize
+		);
 	}
 
 	function getData($filename)
@@ -155,53 +138,82 @@ class MapService
 				throw new \InvalidArgumentException($filename.' : file does not exist');
 		$file = file_get_contents($filename);
 
-		if($file === false || stristr($file, '<header type="map"') === false)
+		if($file === false || (stristr($file, '<header type="map"') === false && stristr($file,
+						'<header type="challenge"') === false))
 		{
 			throw new \InvalidArgumentException('file is not a map');
 		}
 
 
-		$search = strstr($file, '<header');
-		$pos = stristr($search, '</header>', true);
+		$header = stristr($file, '<header');
+		$header = stristr($header, '</header>', true).'</header>';
 
-		$start = strlen('<header');
-		$header = substr($pos, $start);
+		$xmlData = simplexml_load_string($header);
 
-		$search = array('&apos;', '&amp;', '&gt;', '&lt;');
-
-		$tmp = stristr($header, 'name="');
-		$name = substr(stristr($tmp, '" author', true), 6);
-		$infos['name'] = urldecode(str_replace('&apos;', "'",
-						htmlspecialchars_decode($name, ENT_QUOTES)));
-		$tmp = stristr($tmp, 'author="');
-		$author = substr(stristr($tmp, '" authorzone', true), 8);
-		$infos['author'] = urldecode(str_replace('&apos;', "'",
-						htmlspecialchars_decode($author, ENT_QUOTES)));
-		$tmp = stristr($tmp, 'envir="');
-		$environment = substr(stristr($tmp, '" mood', true), 7);
-		$infos['environment'] = urldecode(str_replace('&apos;', "'",
-						htmlspecialchars_decode($environment, ENT_QUOTES)));
-		$tmp = stristr($tmp, 'authortime="');
-		$authorTime = substr(stristr($tmp, '" authorscore', true), 12);
-		$infos['authorTime'] = urldecode(str_replace('&apos;', "'",
-						htmlspecialchars_decode($authorTime, ENT_QUOTES)));
+		$infos['name'] = (string) $xmlData->ident->attributes()->name;
+		$infos['author'] = (string) $xmlData->ident->attributes()->author;
+		$infos['environment'] = (string) $xmlData->desc->attributes()->envir;
+		$infos['mood'] = (string) $xmlData->desc->attributes()->mood;
+		$infos['type'] = (string) $xmlData->desc->attributes()->type;
+		$infos['nbLaps'] = (int) $xmlData->desc->attributes()->nblaps;
+		$infos['authorTime'] = (int) $xmlData->times->attributes()->authortime;
 
 		return $infos;
+	}
+
+	function delete($filename)
+	{
+		$this->db()->execute(
+				'DELETE FROM Maps WHERE CONACT(path,filename) = %s',
+				$this->db()->quote($filename)
+		);
+
+		if($this->db()->affectedRows && file_exists($this->mapPath.$filename))
+		{
+			unlink($this->mapPath.$filename);
+		}
+	}
+
+	protected function getKeys($path, array $excludePath = array(),
+			$environment = null, $nbLaps = null, $type = null, $mapType = null,
+			$recursive = false, $offset = null, $length = null)
+	{
+		$path .= ($recursive ? '%' : '');
+		$path = str_replace('\\', '/', $path);
+		$excludePath = array_map(array($this->db(), 'quote'), $excludePath);
+		return $this->db()->execute(
+						'SELECT CONCAT(path,filename) FROM Maps '.
+						'WHERE path LIKE %s '.
+						($excludePath ? 'AND path NOT IN (%3$s) ' : '').
+						($environment ? 'AND environment = %4$s ' : '').
+						($nbLaps ? 'AND nbLaps != 0 ' : '').
+						($type ? 'AND type = %5$s ' : '').
+						($mapType ? 'AND mapType = %6$s ' : '').
+						'ORDER BY name ASC %s', $this->db()->quote($path),
+						\ManiaLib\Database\Tools::getLimitString($offset, $length),
+						implode($excludePath), $this->db()->quote($environment),
+						$this->db()->quote($type), $this->db()->quote($mapType)
+				)->fetchArrayOfSingleValues();
 	}
 
 	protected function doRecursiveSearch($path)
 	{
 		$maps = array();
 
-		$files = scandir($path);
-		foreach($files as $filename)
+		$workPath = $this->mapPath.$path;
+		if(!substr_compare($workPath, '/', -1, 1))
 		{
-			if($filename != '$uploaded' && $filename != '.' && $filename != '..' && is_dir($path.$filename.DIRECTORY_SEPARATOR))
+			$workPath .= '/';
+		}
+
+		foreach(scandir($workPath) as $filename)
+		{
+			if($filename != '.' && $filename != '..' && is_dir($workPath.$filename.'/'))
 			{
-				$datas = $this->doRecursiveSearch($path.$filename.DIRECTORY_SEPARATOR);
+				$datas = $this->doRecursiveSearch($path.$filename.'/');
 				$maps = array_merge($maps, $datas);
 			}
-			elseif(stristr($path.$filename, 'map.gbx'))
+			elseif(preg_match('/\\.map\\.gbx$/ixu', $filename))
 			{
 				$file = new Map();
 				$file->isDirectory = false;
@@ -213,7 +225,9 @@ class MapService
 		return $maps;
 	}
 
-	protected function fileSortCallback(Map $a, Map $b)
+	protected
+
+	function fileSortCallback(Map $a, Map $b)
 	{
 		if($a->isDirectory && !$b->isDirectory)
 		{
@@ -226,19 +240,6 @@ class MapService
 		else
 		{
 			return($a->filename < $b->filename ? -1 : 1);
-		}
-	}
-
-	protected function securePath($path)
-	{
-		$path = realpath((stripos(PHP_OS, 'WIN') === 0 ? utf8_decode($path) : $path));
-		if($path === false)
-		{
-			return false;
-		}
-		else
-		{
-			return $path.DIRECTORY_SEPARATOR;
 		}
 	}
 

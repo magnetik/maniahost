@@ -19,7 +19,7 @@ abstract class AbstractService
 	/**
 	 * Overide in service implementations to select a default database
 	 */
-	protected $databaseName;
+	protected $databaseName = 'ManiaHost';
 
 	function __construct()
 	{
