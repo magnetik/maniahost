@@ -146,18 +146,18 @@ class RentServer extends \ManiaLib\Application\View
 				$ui->setHalign('center');
 				$ui->setPosY(-44);
 				$ui->setStyle(Label::TextTips);
-				$ui->setText(_('Game mode'));
+				$ui->setText('Game mode');
 				$ui->save();
 
 				switch($this->response->gameMode)
 				{
 					case GameInfos::GAMEMODE_ROUNDS:
-						$gameModeLabel = _('Rounds');
+						$gameModeLabel = 'Rounds';
 
 						$ui = new Label(20);
 						$ui->setHalign('right');
 						$ui->setPosition(0, -59);
-						$ui->setText(_('Point limit'));
+						$ui->setText('Point limit');
 						$ui->save();
 
 						$ui = new Entry(32, 4.5);
@@ -169,12 +169,12 @@ class RentServer extends \ManiaLib\Application\View
 						$ui->save();
 						break;
 					case GameInfos::GAMEMODE_TEAM:
-						$gameModeLabel = _('Team');
+						$gameModeLabel = 'Team';
 
 						$ui = new Label(20);
 						$ui->setHalign('right');
 						$ui->setPosition(0, -59);
-						$ui->setText(_('Point limit'));
+						$ui->setText('Point limit');
 						$ui->save();
 
 						$ui = new Entry(32, 4.5);
@@ -186,12 +186,12 @@ class RentServer extends \ManiaLib\Application\View
 						$ui->save();
 						break;
 					case GameInfos::GAMEMODE_LAPS:
-						$gameModeLabel = _('Laps');
+						$gameModeLabel = 'Laps';
 
 						$ui = new Label(20);
 						$ui->setHalign('right');
 						$ui->setPosition(0, -59);
-						$ui->setText(_('Time limit'));
+						$ui->setText('Time limit');
 						$ui->save();
 
 						$ui = new Entry(32, 4.5);
@@ -205,7 +205,7 @@ class RentServer extends \ManiaLib\Application\View
 						$ui = new Label(40);
 						$ui->setHalign('right');
 						$ui->setPosition(0, -65);
-						$ui->setText(_('Number of laps'));
+						$ui->setText('Number of laps');
 						$ui->save();
 
 						$ui = new Entry(32, 4.5);
@@ -217,12 +217,12 @@ class RentServer extends \ManiaLib\Application\View
 						$ui->save();
 						break;
 					case GameInfos::GAMEMODE_CUP:
-						$gameModeLabel = _('Cup');
+						$gameModeLabel = 'Cup';
 
 						$ui = new Label(20);
 						$ui->setHalign('right');
 						$ui->setPosition(0, -59);
-						$ui->setText(_('Point limit'));
+						$ui->setText('Point limit');
 						$ui->save();
 
 						$ui = new Entry(32, 4.5);
@@ -236,7 +236,7 @@ class RentServer extends \ManiaLib\Application\View
 						$ui = new Label(40);
 						$ui->setHalign('right');
 						$ui->setPosition(0, -65);
-						$ui->setText(_('Rounds per map'));
+						$ui->setText('Rounds per map');
 						$ui->save();
 
 						$ui = new Entry(32, 4.5);
@@ -250,7 +250,7 @@ class RentServer extends \ManiaLib\Application\View
 						$ui = new Label(40);
 						$ui->setHalign('right');
 						$ui->setPosition(0, -71);
-						$ui->setText(_('Number of winners'));
+						$ui->setText('Number of winners');
 						$ui->save();
 
 						$ui = new Entry(32, 4.5);
@@ -262,12 +262,12 @@ class RentServer extends \ManiaLib\Application\View
 						$ui->save();
 						break;
 					case GameInfos::GAMEMODE_STUNTS:
-						$gameModeLabel = _('Stunts');
+						$gameModeLabel = 'Stunts';
 
 						$ui = new Label(20);
 						$ui->setHalign('right');
 						$ui->setPosition(0, -59);
-						$ui->setText(_('Time limit'));
+						$ui->setText('Time limit');
 						$ui->save();
 
 						$ui = new Entry(32, 4.5);
@@ -279,12 +279,12 @@ class RentServer extends \ManiaLib\Application\View
 						$ui->save();
 						break;
 					case GameInfos::GAMEMODE_TIMEATTACK:
-						$gameModeLabel = _('Time Attack');
+						$gameModeLabel = 'Time Attack';
 
 						$ui = new Label(20);
 						$ui->setHalign('right');
 						$ui->setPosition(0, -59);
-						$ui->setText(_('Time limit'));
+						$ui->setText('Time limit');
 						$ui->save();
 
 						$ui = new Entry(32, 4.5);

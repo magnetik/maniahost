@@ -16,6 +16,12 @@ if(!defined('APP_PATH'))
 	 */
 	define('APP_PATH', __DIR__.'/../');
 }
+
+if(!defined('APP_ROOT'))
+{
+	define('APP_ROOT', APP_PATH);
+}
+
 if(!defined('MANIALIB_APP_PATH'))
 {
 	define('MANIALIB_APP_PATH', APP_PATH);

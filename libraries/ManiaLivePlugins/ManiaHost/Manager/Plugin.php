@@ -20,6 +20,8 @@ class Plugin extends \ManiaLive\PluginHandler\Plugin implements \ManiaLive\Plugi
 
 	protected $stopTime = null;
 	protected $tick = 0;
+	protected $avgPlayer;
+	protected $maxPlayer = 0;
 
 	function onLoad()
 	{
@@ -45,6 +47,7 @@ class Plugin extends \ManiaLive\PluginHandler\Plugin implements \ManiaLive\Plugi
 		);
 		$this->enableDedicatedEvents();
 		$this->enableApplicationEvents();
+		$this->enableTickerEvent();
 	}
 
 	function onReady()
@@ -88,6 +91,11 @@ class Plugin extends \ManiaLive\PluginHandler\Plugin implements \ManiaLive\Plugi
 
 	function onPreLoop()
 	{
+		if(count($this->storage->players) + count($this->storage->spectators) > $this->maxPlayer)
+		{
+			$this->maxPlayer = count($this->storage->players) + count($this->storage->spectators);
+		}
+
 		if($this->storage->serverStatus->code == Status::WAITING)
 		{
 			try
@@ -132,8 +140,20 @@ class Plugin extends \ManiaLive\PluginHandler\Plugin implements \ManiaLive\Plugi
 		}
 		elseif(time() > $this->stopTime)
 		{
-			$this->timeleft--;
-			if($this->timeleft == 0)
+			//Check if StopTime Changed
+			$result = $this->db->query(
+					'SELECT UNIX_TIMESTAMP(rentDate) + duration * 3600 '.
+					'FROM Rents R INNER JOIN Servers S ON S.idRent = R.id '.
+					'WHERE S.hostname = %s AND S.port = %d',
+					$this->db->quote(Config::getInstance()->host), Config::getInstance()->port
+			);
+			$stopTime = $result->fetchRow();
+			$stopTime = $stopTime[0];
+			if($stopTime > $this->stopTime)
+			{
+				$this->stopTime = $stopTime;
+			}
+			else
 			{
 				$this->timeleft = null;
 				$this->duration = null;
@@ -172,6 +192,25 @@ class Plugin extends \ManiaLive\PluginHandler\Plugin implements \ManiaLive\Plugi
 		$this->db->execute('DELETE FROM Servers WHERE hostname = %s AND port = %d',
 				$this->db->quote(Config::getInstance()->host), Config::getInstance()->port);
 		parent::onUnload();
+	}
+
+	function onTick()
+	{
+		++$this->tick;
+		if($this->tick % 3600 == 0)
+		{
+			$this->db->execute('INSERT INTO Analytics VALUES (%s,%s,%f,%d)',
+					$this->db->quote($this->storage->serverLogin),
+					$this->db->quote(date('Y-m-d H:00:00')), $this->avgPlayer,
+					$this->maxPlayer);
+			$this->avgPlayer = 0;
+			$this->maxPlayer = 0;
+		}
+		else
+		{
+			$values = $this->avgPlayer * ($this->tick % 3600) + count($this->storage->players) + count($this->storage->spectators);
+			$this->avgPlayer = (float) $values / ($this->tick % 3600);
+		}
 	}
 
 	function configServer(array $datas)

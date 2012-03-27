@@ -1,6 +1,6 @@
 <?php
 /**
- * @copyright   Copyright (c) 2009-2011 NADEO (http://www.nadeo.com)
+ * @copyright   Copyright (c) 2009-2012 NADEO (http://www.nadeo.com)
  * @license     http://www.gnu.org/licenses/lgpl.html LGPL License 3
  * @version     $Revision$:
  * @author      $Author$:
@@ -9,13 +9,13 @@
 
 namespace ManiaHost\Views\Rent;
 
-use ManiaLib\Gui\Manialink;
 use ManiaLib\Gui\Elements\Bgs1;
-use ManiaLib\Gui\Elements\Button;
 use ManiaLib\Gui\Elements\Label;
+use ManiaLib\Gui\Manialink;
 use ManiaLib\Gui\Elements\Entry;
+use ManiaLib\Gui\Elements\Button;
 
-class SelectDuration extends \ManiaLib\Application\View
+class Renew extends \ManiaLib\Application\View
 {
 
 	function display()
@@ -42,7 +42,7 @@ class SelectDuration extends \ManiaLib\Application\View
 			$ui->setHalign('center');
 			$ui->setStyle(Label::TextTips);
 			$ui->enableAutonewline();
-			$ui->setText('How long do you want to rent server?');
+			$ui->setText('How long do you want to extend your rental?');
 			$ui->save();
 
 			$ui = new Label(25);
@@ -73,12 +73,12 @@ class SelectDuration extends \ManiaLib\Application\View
 			$ui->save();
 			$this->request->set('hours', 'hours');
 
-			$manialink = $this->request->createLink('../rent-server/');
+			$manialink = $this->request->createLink('../checkout-extend/');
 			$ui = new Button();
 			$ui->setHalign('center');
 			$ui->setPosY(-30);
 			$ui->setStyle(Button::CardButtonMediumWide);
-			$ui->setText('Go to configuration');
+			$ui->setText('Pay the rental extension');
 			$ui->setManialink($manialink);
 			$ui->save();
 		}

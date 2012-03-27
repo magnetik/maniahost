@@ -11,8 +11,8 @@ namespace ManiaHost;
 class Config extends \ManiaLib\Utils\Singleton
 {
     public $hourlyCost;
-    public $pathToDedicated;
     public $appName;
+	public $adminLogins = array();
     public $transactionLogin;
     public $transactionPassword;
     public $transactionSecurityKey;

@@ -23,7 +23,7 @@ class DefaultMaps extends \ManiaLib\Application\View
 	{
 		$ui = new \ManiaLib\Gui\Cards\Navigation\Menu();
 		$ui->title->setText(\ManiaHost\Config::getInstance()->appName);
-		$ui->subTitle->setText(_('Select maps'));
+		$ui->subTitle->setText('Select maps');
 
 		$manialink = $this->request->createLinkArgList('../my-maps/');
 		$ui->addItem();
@@ -46,7 +46,7 @@ class DefaultMaps extends \ManiaLib\Application\View
 		{
 			$ui = new \ManiaLib\Gui\Cards\Panel(94, 20);
 			$ui->setHalign('center');
-			$ui->title->setText(_('Maps'));
+			$ui->title->setText('Maps');
 			$ui->save();
 
 			$ui = new Label();
@@ -121,7 +121,7 @@ class DefaultMaps extends \ManiaLib\Application\View
 			$manialink = $this->request->createLink('../checkout');
 
 			$ui = new \ManiaLib\Gui\Elements\Button();
-			$ui->setText(_('Play'));
+			$ui->setText('Play');
 			$ui->setAlign('center', 'center2');
 			$ui->setPosition(100, -136.25);
 			$ui->setManialink($manialink);

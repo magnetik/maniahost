@@ -19,7 +19,7 @@ class Upload extends \ManiaLib\Application\View
 	{
 		$ui = new \ManiaLib\Gui\Cards\Navigation\Menu();
 		$ui->title->setText(\ManiaHost\Config::getInstance()->appName);
-		$ui->subTitle->setText(_('Select maps'));
+		$ui->subTitle->setText('Select maps');
 
 		$manialink = $this->request->createLinkArgList('../my-maps/');
 		$ui->addItem();

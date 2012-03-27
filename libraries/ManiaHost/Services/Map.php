@@ -9,7 +9,7 @@
 
 namespace ManiaHost\Services;
 
-class Map
+class Map extends AbstractObject
 {
 
 	public $filename;
@@ -19,7 +19,10 @@ class Map
 	public $name;
 	public $author;
 	public $authorTime;
+	public $type;
+	public $nbLaps;
 	public $environment;
+	public $fileSize;
 
 }
 

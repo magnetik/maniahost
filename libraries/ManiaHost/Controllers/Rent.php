@@ -24,13 +24,17 @@ class Rent extends AbstractController
 		$service = new \ManiaHost\Services\RentService();
 		$rents = $service->getCurrents($this->session->login, $offset, $length + 1);
 
-		$isAvailable = $service->isAvailable();
+		$serverService = new \ManiaHost\Services\ServerService();
+		$isAvailable = $serverService->availableCount();
 
 		$multipage->checkArrayForMorePages($rents);
 
+		$config = \ManiaHost\Config::getInstance();
 		$this->response->rents = $rents;
 		$this->response->multipage = $multipage;
 		$this->response->isAvailable = $isAvailable;
+		$this->response->isAdmin = in_array($this->session->login,
+				$config->adminLogins);
 	}
 
 	function selectDuration()
@@ -42,7 +46,7 @@ class Rent extends AbstractController
 	{
 		if($days == 0 && $hours == 0 && $this->session->get('duration') == 0)
 		{
-			throw new \ManiaLib\Application\UserException(_('You have to rent a server for at least 1 hour'));
+			throw new \ManiaLib\Application\UserException('You have to rent a server for at least 1 hour');
 		}
 
 		if(!$this->session->get('duration'))
@@ -113,17 +117,17 @@ class Rent extends AbstractController
 				&& $gameMode != GameInfos::GAMEMODE_TEAM && $gameMode != GameInfos::GAMEMODE_LAPS && $gameMode != GameInfos::GAMEMODE_CUP
 				&& $gameMode != GameInfos::GAMEMODE_STUNTS)
 		{
-			throw new \InvalidArgumentException(_('Unknown Game Mode'));
+			throw new \InvalidArgumentException('Unknown Game Mode');
 		}
 
 		if(!$name)
 		{
-			throw new \ManiaLib\Application\UserException(_('You must name your server'));
+			throw new \ManiaLib\Application\UserException('You must name your server');
 		}
 
 		if($maxPlayer + $maxSpec > \ManiaHost\Config::getInstance()->maxPlayerPerServer)
 		{
-			throw new \ManiaLib\Application\UserException(sprintf(_('The number of player and spectator has to be inferior to %d'),
+			throw new \ManiaLib\Application\UserException(sprintf('The number of player and spectator has to be inferior to %d',
 							\ManiaHost\Config::getInstance()->maxPlayerPerServer));
 		}
 
@@ -223,11 +227,12 @@ class Rent extends AbstractController
 
 	function upload($message = '')
 	{
-		$path = realpath(\ManiaHost\Config::getInstance()->pathToDedicated).DIRECTORY_SEPARATOR;
-		$path .= 'UserData'.DIRECTORY_SEPARATOR.'Maps'.DIRECTORY_SEPARATOR.'$uploaded'.DIRECTORY_SEPARATOR.$this->session->login.DIRECTORY_SEPARATOR;
+		$connection = $this->getServerConnection();
+		$mapsPath = $connection->getMapsDirectory();
+		$path = '$uploaded/'.$this->session->login.'/';
 
-		$mapService = new \ManiaHost\Services\MapService();
-		$size = $mapService->getSize($path, true);
+		$mapService = new \ManiaHost\Services\MapService($mapsPath);
+		$size = $mapService->getSize($path, array(), null, null, null, null, true);
 
 		$availableSpace = 20 * pow(2, 20) - $size;
 		$this->response->message = $message;
@@ -242,19 +247,39 @@ class Rent extends AbstractController
 			throw new \ManiaLib\Application\UserException('Please upload only maps');
 		}
 
-		$path = realpath(\ManiaHost\Config::getInstance()->pathToDedicated).DIRECTORY_SEPARATOR;
-		$path .= 'UserData'.DIRECTORY_SEPARATOR.'Maps'.DIRECTORY_SEPARATOR.'$uploaded'.DIRECTORY_SEPARATOR.$this->session->login.DIRECTORY_SEPARATOR;
-
-		if(!file_exists($path))
+		try
 		{
-			mkdir($path, 0770, true);
+			$path = '$uploaded/'.$this->session->login.'/';
+
+			$connection = $this->getServerConnection();
+			$mapsPath = $connection->getMapsDirectory();
+
+			$mapService = new \ManiaHost\Services\MapService($mapsPath);
+			$maxSize = 20 * pow(2, 20) - $mapService->getSize($path, array(), null, null,
+							null, null, true);
+			$maxSize = ($maxSize > pow(2, 20) ? pow(2, 20) : $maxSize);
+
+			$data = file_get_contents('php://input', null, null, null, $maxSize);
+
+			$connection->writeFileFromString($path.$file, $data);
+
+			$datas = $mapService->getData($mapsPath.$path.$file);
+			$map = new \ManiaHost\Services\Map();
+			$map->filename = $file;
+			$map->path = $path;
+			foreach($datas as $key => $value)
+			{
+				$map->$key = $value;
+			}
+			$mapService->register($map);
+		}
+		catch(\Exception $e)
+		{
+			\ManiaLib\Application\ErrorHandling::logException($e);
+			$this->request->set('message', 'An error append during upload');
+			$this->request->redirectArgList('../upload/', 'message');
 		}
 
-		$mapService = new \ManiaHost\Services\MapService();
-		$maxSize = 20 * pow(2, 20) - $mapService->getSize($path, true);
-		$maxSize = ($maxSize > pow(2, 20) ? pow(2, 20) : $maxSize);
-
-		\ManiaLib\Utils\Upload::uploadFile($path, $file, $maxSize);
 		$this->request->set('message', 'file successfully uploaded');
 		$this->request->redirectArgList('../upload/', 'message');
 	}
@@ -263,13 +288,16 @@ class Rent extends AbstractController
 	{
 		$this->request->registerReferer();
 
-		$rentService = new \ManiaHost\Services\RentService();
-		$used = $rentService->getUsedFilenames($this->session->login);
+		$connection = $this->getServerConnection();
 
-		$path = realpath(\ManiaHost\Config::getInstance()->pathToDedicated).DIRECTORY_SEPARATOR;
-		$path.= 'UserData'.DIRECTORY_SEPARATOR.'Maps'.DIRECTORY_SEPARATOR.'$uploaded'.DIRECTORY_SEPARATOR.$this->session->login;
-		$mapService = new \ManiaHost\Services\MapService();
-		$count = $mapService->getCount($path);
+		$mapsPath = $connection->getMapsDirectory();
+
+		$path = '$uploaded/'.$this->session->login.'/';
+
+		$mapService = new \ManiaHost\Services\MapService($mapsPath);
+
+		$count = $mapService->getCount($path, array(), null, null, null, null, true);
+		$used = $mapService->getUsed($this->session->login);
 
 		if(!$count)
 		{
@@ -282,12 +310,9 @@ class Rent extends AbstractController
 
 		list($offset, $length) = $multipage->getLimit();
 
-		$files = $mapService->getList($path, true, $offset, $length);
-
-		$this->chooseSelector($path, true);
-
-		$mapPath = realpath(\ManiaHost\Config::getInstance()->pathToDedicated).DIRECTORY_SEPARATOR.'UserData'.DIRECTORY_SEPARATOR.'Maps';
-		$path = str_ireplace($mapPath, '', $path);
+		$files = $mapService->getList($path, array(), null, null, null, null, true,
+				$offset, $length);
+		$this->chooseSelector($path, false);
 
 		$this->response->path = $path;
 		$this->response->files = $files;
@@ -301,11 +326,14 @@ class Rent extends AbstractController
 	{
 		$this->request->registerReferer();
 
-		$path = realpath(\ManiaHost\Config::getInstance()->pathToDedicated).DIRECTORY_SEPARATOR.'UserData'.DIRECTORY_SEPARATOR.'Maps'.$path;
+		$excludePath = array('$uploaded/'.$this->session->login.'/');
+		$connection = $this->getServerConnection();
+		$mapPath = $connection->getMapsDirectory();
 
-		$fileService = new \ManiaHost\Services\MapService();
+		$fileService = new \ManiaHost\Services\MapService($mapPath);
 
-		$count = $fileService->getCount($path, true);
+		$count = $fileService->getCount($path, $excludePath, null, null, null, null,
+				true);
 
 		$multipage = new \ManiaLib\Utils\MultipageList();
 		$multipage->setPerPage(12);
@@ -313,7 +341,8 @@ class Rent extends AbstractController
 
 		list($offset, $length) = $multipage->getLimit();
 
-		$files = $fileService->getList($path, true, $offset, $length);
+		$files = $fileService->getList($path, $excludePath, null, null, null, null,
+				true, $offset, $length);
 
 		$this->chooseSelector($path, true);
 
@@ -330,42 +359,37 @@ class Rent extends AbstractController
 		$serverOptions = $this->session->get('serverOptions');
 		if(!$selectedTracks)
 		{
-			throw new \ManiaLib\Application\UserException(_('You have to select maps'));
+			throw new \ManiaLib\Application\UserException('You have to select maps');
 		}
 		if(!$gameInfos)
 		{
-			throw new \ManiaLib\Application\UserException(_('You have to configure your server'));
+			throw new \ManiaLib\Application\UserException('You have to configure your server');
 		}
 		if(!$serverOptions)
 		{
-			throw new \ManiaLib\Application\UserException(_('You have to configure your server'));
+			throw new \ManiaLib\Application\UserException('You have to configure your server');
 		}
 
-		$service = new \ManiaHost\Services\RentService();
-		if(!$service->isAvailable())
+		$service = new \ManiaHost\Services\ServerService();
+		if(!$service->availableCount())
 		{
 			throw new \ManiaLib\Application\UserException('There is no more server available');
 		}
 
-		$t = new \Maniaplanet\WebServices\Transaction();
-		$t->creatorLogin = \ManiaHost\Config::getInstance()->transactionLogin;
-		$t->creatorPassword = \ManiaHost\Config::getInstance()->transactionPassword;
-		$t->creatorSecurityKey = \ManiaHost\Config::getInstance()->transactionSecurityKey;
-		$t->fromLogin = $this->session->login;
-		$t->toLogin = \ManiaHost\Config::getInstance()->transactionLogin;
-		$t->cost = $this->session->getStrict('duration') * \ManiaHost\Config::getInstance()->hourlyCost;
+		$transactionService = new \ManiaHost\Services\TransactionService();
+		$t = $transactionService->create($this->session->login, $this->session->getStrict('duration') * \ManiaHost\Config::getInstance()->hourlyCost);
 
-		$payments = new \Maniaplanet\WebServices\Payments();
-		$t->id = $payments->create($t);
-		$this->request->set('transaction', $t->id);
-		$url = \ManiaLib\Application\Config::getInstance()->manialink.'?transaction='.$t->id.'&ml-forcepathinfo=%2Frent%2Ffinalize%2F';
+		$this->session->set('transaction-'.$this->session->login, $t);
+
+		$url = \ManiaLib\Application\Config::getInstance()->manialink.'?&ml-forcepathinfo=%2Frent%2Ffinalize%2F'.($t->id ? '&transaction='.$t->id : '');
 		$this->request->redirectAbsolute($url);
 	}
 
-	function finalize($transaction)
+	function finalize($transaction = 0)
 	{
-		$payments = new \Maniaplanet\WebServices\Payments(\ManiaLive\Features\WebServices\Config::getInstance()->username, \ManiaLive\Features\WebServices\Config::getInstance()->password);
-		if(!$payments->isPaid($transaction))
+		$transactionObject = $this->session->getStrict('transaction-'.$this->session->login);
+		$transactionService = new \ManiaHost\Services\TransactionService();
+		if(!$transactionService->isPaid($transactionObject))
 		{
 			throw new \ManiaLib\Application\UserException('You have to pay to rent the server');
 		}
@@ -374,11 +398,9 @@ class Rent extends AbstractController
 		$gameInfos = $this->session->get('gameInfos');
 		$serverOptions = $this->session->get('serverOptions');
 
-		$selectedTracks = array_map(array($this, 'dedicatedFilename'), $selectedTracks);
 		$rent = new \ManiaHost\Services\Rent();
 		$rent->playerLogin = $this->session->login;
 		$rent->duration = $this->session->get('duration');
-		$rent->cost = $rent->duration * \ManiaHost\Config::getInstance()->hourlyCost;
 		$rent->gameInfos = $gameInfos;
 		$rent->maps = $selectedTracks;
 		$rent->serverOptions = $serverOptions;
@@ -391,6 +413,66 @@ class Rent extends AbstractController
 		$this->session->delete('serverOptions');
 
 		$this->request->redirectArgList('../');
+	}
+
+	function renew($idRent)
+	{
+		$rentService = new \ManiaHost\Services\RentService();
+		$rent = $rentService->get($idRent);
+		if($this->session->login != $rent->playerLogin)
+		{
+			throw new \ManiaLib\Application\UserException('You are not allowed to edit this rental');
+		}
+	}
+
+	function checkoutExtend($idRent, $hours = 0, $days = 0)
+	{
+		if($hours < 0 || $days < 0 || $hours + $days == 0)
+		{
+			throw new \ManiaLib\Application\UserException('You have to enter a positive duration');
+		}
+
+		$duration = $hours + 24 * $days;
+
+		$transactionService = new \ManiaHost\Services\TransactionService();
+		$transaction = $transactionService->create($this->session->login,
+				$duration * \ManiaHost\Config::getInstance()->hourlyCost);
+
+		$query = array();
+		$query['ml-forcepathinfo'] = '/rent/pay-extend/';
+		if($transaction->id)
+		{
+			$query['transaction'] = $transaction->id;
+		}
+		\ManiaLib\Utils\Logger::info((int)$idRent);
+		$query['idRent'] = $idRent;
+		$query['duration'] = $duration;
+
+		$this->session->set('transaction-'.$this->session->login, $transaction);
+
+		$queryString = http_build_query($query);
+		$url = \ManiaLib\Application\Config::getInstance()->manialink.'?'.$queryString;
+		$this->request->redirectAbsolute($url);
+	}
+
+	function payExtend($idRent, $duration)
+	{
+		\ManiaLib\Utils\Logger::info((int)$idRent);
+		$transactionObject = $this->session->getStrict('transaction-'.$this->session->login);
+
+		$transactionService = new \ManiaHost\Services\TransactionService();
+		if(!$transactionService->isPaid($transactionObject))
+		{
+			throw new \ManiaLib\Application\UserException('You have to pay to rent the server');
+		}
+
+
+		$rentService = new \ManiaHost\Services\RentService();
+		$rent = $rentService->get($idRent);
+		\ManiaLib\Utils\Logger::info($rent);
+		$rent->duration += $duration;
+		$rentService->updateRent($rent);
+		$this->request->redirectArgList('/rent/');
 	}
 
 	function select($filename)
@@ -422,10 +504,11 @@ class Rent extends AbstractController
 
 	function selectAll($path = '')
 	{
-		$path = realpath(\ManiaHost\Config::getInstance()->pathToDedicated).DIRECTORY_SEPARATOR.'UserData'.DIRECTORY_SEPARATOR.'Maps'.$path;
+		$connection = $this->getServerConnection();
+		$mapsPath = $connection->getMapsDirectory();
 
-		$fileService = new \ManiaHost\Services\MapService();
-		$files = $fileService->getList($path, true);
+		$fileService = new \ManiaHost\Services\MapService($mapsPath);
+		$files = $fileService->getList($path, array(), null, null, null, null, true);
 		$files = array_map(function (\ManiaHost\Services\Map $m)
 				{
 					return $m->path.$m->filename;
@@ -438,13 +521,15 @@ class Rent extends AbstractController
 
 	function unselectAll($path = '')
 	{
-		$path = realpath(\ManiaHost\Config::getInstance()->pathToDedicated).DIRECTORY_SEPARATOR.'UserData'.DIRECTORY_SEPARATOR.'Maps'.$path;
+		$connection = $this->getServerConnection();
+		$mapsPath = $connection->getMapsDirectory();
 
-		$mapService = new \ManiaHost\Services\MapService();
-		$maps = $mapService->getList($path);
+		$mapService = new \ManiaHost\Services\MapService($mapsPath);
+		$maps = $mapService->getList($path, array(), null, null, null, null, true);
+
 		$maps = array_map(function (\ManiaHost\Services\Map $m)
 				{
-					return $m->path.DIRECTORY_SEPARATOR.$m->filename;
+					return $m->path.$m->filename;
 				}, $maps);
 
 		$selected = array_diff($this->session->get('selected', array()), $maps);
@@ -493,23 +578,21 @@ class Rent extends AbstractController
 
 	function changeMode($gameMode)
 	{
-		$this->request->set('gameMode', ($gameMode % 6) + 1);
+		$this->request->set('gameMode', ($gameMode % 5) + 1);
 		$this->request->redirect('../rent-server/');
-	}
-
-	protected function dedicatedFilename($filename)
-	{
-		$search = realpath(\ManiaHost\Config::getInstance()->pathToDedicated).DIRECTORY_SEPARATOR.'UserData'.DIRECTORY_SEPARATOR.'Maps'.DIRECTORY_SEPARATOR;
-		return str_ireplace($search, '', $filename);
 	}
 
 	protected function chooseSelector($path, $recursive)
 	{
-		$mapService = new \ManiaHost\Services\MapService();
-		$maps = $mapService->getList($path);
+		$connection = $this->getServerConnection();
+		$mapsPath = $connection->getMapsDirectory();
+
+		$mapService = new \ManiaHost\Services\MapService($mapsPath);
+		$maps = $mapService->getList($path, array(), null, null, null, null,
+				$recursive);
 		$maps = array_map(function (\ManiaHost\Services\Map $m)
 				{
-					return $m->path.DIRECTORY_SEPARATOR.$m->filename;
+					return $m->path.$m->filename;
 				}, $maps);
 
 		$selected = $this->session->get('selected', array());

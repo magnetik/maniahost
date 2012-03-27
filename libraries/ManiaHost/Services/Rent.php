@@ -17,7 +17,6 @@ class Rent extends AbstractObject
 	public $login;
 	public $rentDate;
 	public $duration;
-	public $cost;
 	public $gameInfos;
 	public $maps;
 	public $serverOptions;
