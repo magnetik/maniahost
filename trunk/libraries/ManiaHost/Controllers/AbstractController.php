@@ -42,7 +42,8 @@ abstract class AbstractController extends \ManiaLib\Application\Controller
 		$config->port = $server->port;
 		$config->user = 'SuperAdmin';
 		$config->password = $server->superAdminPassword;
-		return \ManiaLive\DedicatedApi\Connection::getInstance();
+		$this->connection = \ManiaLive\DedicatedApi\Connection::getInstance();
+		return $this->connection;
 	}
 
 }
